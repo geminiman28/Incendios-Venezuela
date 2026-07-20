@@ -313,14 +313,16 @@ def modo_esequibo(esequibo, rayas):
     """Devuelve la política cartográfica del Esequibo.
 
     unidad: Esequibo se integra a Venezuela y suma puntos de Guyana.
-    disputa: se excluyen puntos y el área se marca con rayas.
-    excluido: se excluyen puntos y no se marca el área.
+    disputa: solo si esequibo=True y rayas=True; se excluyen puntos
+             y el área se marca con rayas.
+    excluido: sin esequibo no se muestra el área ni rayas, aunque
+              rayas esté activo; los puntos del Esequibo se excluyen.
     """
+    if not esequibo:
+        return "excluido"
     if rayas:
         return "disputa"
-    if esequibo:
-        return "unidad"
-    return "excluido"
+    return "unidad"
 
 
 def formatear_periodo(meses):

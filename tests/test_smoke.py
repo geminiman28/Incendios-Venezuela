@@ -58,7 +58,7 @@ class TestConfiguracion(unittest.TestCase):
     def test_modo_esequibo(self):
         self.assertEqual(cfg.modo_esequibo(True, False), "unidad")
         self.assertEqual(cfg.modo_esequibo(True, True), "disputa")
-        self.assertEqual(cfg.modo_esequibo(False, True), "disputa")
+        self.assertEqual(cfg.modo_esequibo(False, True), "excluido")
         self.assertEqual(cfg.modo_esequibo(False, False), "excluido")
 
 
