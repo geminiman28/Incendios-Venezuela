@@ -498,7 +498,7 @@ def generar_mapa(
     _plot_mundo(ax, world, satelital, rayas=rayas)
 
     crs_code = "3857" if satelital else "4326"
-    if esequibo and rayas:
+    if cfg.modo_esequibo(esequibo, rayas) == "disputa":
         crs_code = "3857" if satelital else "4326"
         _plot_esequibo(ax, crs_code, rayas=rayas, satelital=satelital)
 

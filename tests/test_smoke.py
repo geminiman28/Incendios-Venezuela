@@ -55,6 +55,13 @@ class TestConfiguracion(unittest.TestCase):
         self.assertEqual(cfg.formatear_periodo(meses2), "Mayo-Junio")
 
 
+    def test_modo_esequibo(self):
+        self.assertEqual(cfg.modo_esequibo(True, False), "unidad")
+        self.assertEqual(cfg.modo_esequibo(True, True), "disputa")
+        self.assertEqual(cfg.modo_esequibo(False, True), "disputa")
+        self.assertEqual(cfg.modo_esequibo(False, False), "excluido")
+
+
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
 

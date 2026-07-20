@@ -11,6 +11,14 @@ from fuente.utils import get_logger
 logger = get_logger(__name__)
 
 
+def _asegurar_crs(gdf, nombre):
+    """Garantiza CRS sin romper capas ya referenciadas."""
+    if gdf.crs is None:
+        logger.warning("%s sin CRS; se asume EPSG:4326", nombre)
+        return gdf.set_crs(epsg=4326, allow_override=True)
+    return gdf
+
+
 def _annos_en_directorio(directorio, patron):
     """Extrae años (4 dígitos) de nombres de archivo."""
     if not directorio.exists():
@@ -184,10 +192,12 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
     # --- Seleccionar shapefile del mundo ---
     # Caso 1: esequibo=True, rayas=False -> mundo con Esequibo
     # Caso 2/3: esequibo=False o rayas=True -> mundo normal
-    clave = "esequibo" if (esequibo and not rayas) else "normal"
+    modo = cfg.modo_esequibo(esequibo, rayas)
+    clave = "esequibo" if modo == "unidad" else "normal"
     shp_ruta = cfg.SHP_WORLD[clave]
     try:
         world = gpd.read_file(shp_ruta) if shp_ruta.exists() else gpd.GeoDataFrame()
+        world = _asegurar_crs(world, "mundo")
     except Exception as e:
         logger.error(f"Error leyendo shapefile {shp_ruta}: {e}")
         world = gpd.GeoDataFrame()
@@ -196,9 +206,9 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
 
     # --- Caso 1: Venezuela incluye Esequibo como unidad ---
     # Se suman los puntos de Guyana que caen en el Esequibo
-    if esequibo and not rayas:
+    if modo == "unidad":
         if cfg.SHP_ESQ.exists() and not gdf_guy.empty:
-            ese = gpd.read_file(cfg.SHP_ESQ).to_crs(gdf_guy.crs)
+            ese = _asegurar_crs(gpd.read_file(cfg.SHP_ESQ), "esequibo").to_crs(gdf_guy.crs)
             joined = gdf_guy.sjoin(ese, predicate="within", how="inner")
             if not joined.empty:
                 # Conservar solo columnas originales de gdf_guy
@@ -218,7 +228,7 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
     # Se excluyen los puntos de Venezuela que caen en el Esequibo
     else:
         if cfg.SHP_ESQ.exists() and not gdf_ven.empty:
-            ese = gpd.read_file(cfg.SHP_ESQ).to_crs(gdf_ven.crs)
+            ese = _asegurar_crs(gpd.read_file(cfg.SHP_ESQ), "esequibo").to_crs(gdf_ven.crs)
             joined = gdf_ven.sjoin(ese, predicate="within", how="left")
             fuera = joined.index_right.isna()
             n_dentro = (~fuera).sum()
@@ -229,7 +239,7 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
 
     # Calcular estadísticas para el informe
     stats = {
-        "venezuela": len(gdf) if (not esequibo) or rayas else len(gdf_ven),
+        "venezuela": len(gdf_ven) if modo == "unidad" else len(gdf),
         "guyana": len(guy) if not guy.empty else 0,
         "esequibo": len(gdf_e) if gdf_e is not None else 0,
         "venezuela_total": len(gdf),

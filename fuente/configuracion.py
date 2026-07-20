@@ -309,6 +309,20 @@ def verificar_rutas_criticas():
     return True
 
 
+def modo_esequibo(esequibo, rayas):
+    """Devuelve la política cartográfica del Esequibo.
+
+    unidad: Esequibo se integra a Venezuela y suma puntos de Guyana.
+    disputa: se excluyen puntos y el área se marca con rayas.
+    excluido: se excluyen puntos y no se marca el área.
+    """
+    if rayas:
+        return "disputa"
+    if esequibo:
+        return "unidad"
+    return "excluido"
+
+
 def formatear_periodo(meses):
     """Devuelve string 'Mes' o 'Mes1-Mes2' a partir de un DatetimeIndex."""
     if len(meses) < 2:
