@@ -87,6 +87,11 @@ def main():
     if guardar_como is not None and not Path(guardar_como).is_absolute():
         guardar_como = str(OUTPUT_DIR / guardar_como)
 
+    if not guardar_como and not _en_spyder():
+        logger.info(
+            "Sin --guardar y fuera de Spyder: no se mostrara ni guardara mapa."
+        )
+
     # Solo forzar backend Agg en terminal cuando solo se guarda (no en Spyder)
     if guardar_como and not _en_spyder():
         import matplotlib

@@ -67,7 +67,7 @@ def diagnostico(sensor=None, meses=None):
         _check(nombre, ruta, True)
 
     print("\n5. CSVs")
-    sensor = sensor or cfg.DEFAULT_SENSOR
+    sensor = sensor or cfg.SENSOR_DEFAULT
     if meses is None:
         meses = pd.date_range(
             cfg.DEFAULT_MESES_INICIO, cfg.DEFAULT_MESES_FIN, freq="MS"

@@ -33,13 +33,13 @@ Ejecutar `run.py` con **F5**.
 ### Opciones disponibles
 | Argumento | Descripcion | Default |
 |-----------|-------------|---------|
-| `--sensor` | Sensor a utilizar | `VIIRS (JPSS1)` |
+| `--sensor` | Sensor a utilizar | `MODIS (Aqua + Terra)` |
 | `--meses` | Meses en formato AAAA-MM (max. 3) | `2018-05 2018-06` |
 | `--satelital` / `--no-satelital` | Fondo satelital o politico | `satelital` |
 | `--esequibo` / `--no-esequibo` | Incluir Guayana Esequiba | `esequibo` |
 | `--rayas` | Mostrar area disputada con rayas | `False` |
 | `--guardar` | Ruta de salida (PNG/PDF/SVG) | None |
-| `--dpi` | Resolucion de exportacion | 300 |
+| `--dpi` | Resolucion de exportacion | `150` |
 | `--diagnostico` | Verificar rutas y dependencias | False |
 
 ## Estructura del proyecto

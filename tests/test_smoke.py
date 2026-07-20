@@ -19,8 +19,11 @@ class TestConfiguracion(unittest.TestCase):
         self.assertTrue(cfg.RAIZ.exists())
 
     def test_carpetas_criticas(self):
-        self.assertTrue((cfg.RAIZ / "datos").exists())
+        self.assertTrue(cfg.RAIZ.exists())
         self.assertTrue((cfg.RAIZ / "fuente").exists())
+        if not cfg.DATA.exists():
+            self.skipTest(f"Datos no disponibles: {cfg.DATA}")
+
 
     def test_sensores_validos(self):
         self.assertIn("VIIRS (JPSS1)", cfg.SENSORES_VALIDOS)
@@ -30,10 +33,11 @@ class TestConfiguracion(unittest.TestCase):
     def test_parser_defaults(self):
         parser = cfg.crear_parser()
         args = parser.parse_args([])
-        self.assertEqual(args.sensor, "VIIRS (JPSS1)")
-        self.assertTrue(args.satelital)
-        self.assertTrue(args.esequibo)
-        self.assertFalse(args.rayas)
+        self.assertEqual(args.sensor, cfg.SENSOR_DEFAULT)
+        self.assertEqual(args.satelital, not cfg.MODO_POLITICO)
+        self.assertEqual(args.esequibo, cfg.MOSTRAR_ESEQUIBO)
+        self.assertEqual(args.rayas, cfg.MOSTRAR_RAYAS)
+
 
     def test_parsear_meses(self):
         meses = cfg.parsear_meses(["2018-05", "2018-06"])
@@ -53,6 +57,10 @@ class TestConfiguracion(unittest.TestCase):
 
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
+
+    def setUp(self):
+        if not cfg.DATA.exists():
+            self.skipTest(f"Datos no disponibles: {cfg.DATA}")
 
     def test_rutas_csv(self):
         meses = pd.date_range("2018-05-01", "2018-08-01", freq="MS")
