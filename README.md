@@ -93,3 +93,18 @@ git lfs pull
 
 ## Autor
 Carlos Perez
+
+## Notas de comportamiento actuales
+
+- Esequibo: la política es `cfg.modo_esequibo(esequibo, rayas)`.
+  - `--no-esequibo`, con o sin `--rayas`: no se muestra Esequibo ni rayas.
+  - `--esequibo --no-rayas`: Esequibo como unidad con Venezuela.
+  - `--esequibo --rayas`: Esequibo como área disputada rayada.
+- El título no incluye resolución; la resolución va en el pie izquierdo.
+- El pie derecho muestra `Fuente: NASA FIRMS`.
+- El logo IVIC se guarda por defecto en la esquina superior derecha y puede
+  cambiarse con `INCENDIOS_LOGO_POSICION=superior_derecha` o
+  `superior_izquierda` en `.env`.
+- Desde P3.2 la brújula también queda incluida en los archivos guardados.
+- `run.py` es un lanzador legacy para Spyder/F5; el flujo configurable es
+  `python -m fuente.ejecutar_spyder`.
