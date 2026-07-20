@@ -451,28 +451,18 @@ def _titulo_leyenda(meses, sensor_nombre, res_texto):
 
     return titulo, leyenda, colores
 
-def generar_mapa(
-    gdf: gpd.GeoDataFrame,
-    world: gpd.GeoDataFrame,
-    meses: pd.DatetimeIndex,
-    satelital: bool,
-    esequibo: bool,
-    rayas: bool,
-    res_texto: str,
-    total_píxeles: int,
-    sensor_nombre: str,
-    guardar_como: str | None = None,
-    dpi: int = 300,
-) -> plt.Figure:
-    """Genera y muestra/guarda el mapa. Siempre retorna la figura."""
+def _figura_base():
+    """Crea figura y axes con la proporción geográfica del proyecto."""
     w = cfg.EXTENT_DEG[2] - cfg.EXTENT_DEG[0]
     h = cfg.EXTENT_DEG[3] - cfg.EXTENT_DEG[1]
     fig = plt.figure(figsize=(cfg.FIG_HEIGHT * w / h, cfg.FIG_HEIGHT), facecolor="white")
     ax = fig.add_subplot(111)
+    return fig, ax
 
+
+def _configurar_modo(ax, gdf, world, satelital):
+    """Configura CRS, fondo y atribución según modo."""
     tr = None
-    x0 = y0 = x1 = y1 = None
-
     if satelital:
         tr = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
         x0, y0 = tr.transform(cfg.EXTENT_DEG[0], cfg.EXTENT_DEG[1])
@@ -502,27 +492,16 @@ def generar_mapa(
             color="#C0C0C0",
             alpha=0.65,
         )
-    else:
-        ax.set_xlim(cfg.EXTENT_DEG[0], cfg.EXTENT_DEG[2])
-        ax.set_ylim(cfg.EXTENT_DEG[1], cfg.EXTENT_DEG[3])
-        ax.set_facecolor("skyblue")
-        fig.set_facecolor("white")
-        x0, y0, x1, y1 = cfg.EXTENT_DEG
+        return gdf, world, tr, [x0, y0, x1, y1], "3857"
 
-    _plot_mundo(ax, world, satelital, rayas=rayas)
+    ax.set_xlim(cfg.EXTENT_DEG[0], cfg.EXTENT_DEG[2])
+    ax.set_ylim(cfg.EXTENT_DEG[1], cfg.EXTENT_DEG[3])
+    ax.set_facecolor("skyblue")
+    return gdf, world, tr, cfg.EXTENT_DEG, "4326"
 
-    crs_code = "3857" if satelital else "4326"
-    if cfg.modo_esequibo(esequibo, rayas) == "disputa":
-        crs_code = "3857" if satelital else "4326"
-        _plot_esequibo(ax, crs_code, rayas=rayas, satelital=satelital)
 
-    _ticks_grados(
-        ax, cfg.XTICKS_DEG, cfg.YTICKS_DEG, crs_code, cfg.EXTENT_DEG, tr
-    )
-    _escala(ax, crs_code, [x0, y0, x1, y1] if satelital else cfg.EXTENT_DEG)
-
-    titulo, leyenda, colores = _titulo_leyenda(meses, sensor_nombre, res_texto)
-
+def _plot_pixeles(ax, gdf, meses, colores):
+    """Dibuja píxeles mes a mes con la paleta configurada."""
     for i in range(len(meses) - 1):
         sub = gdf[
             (gdf["acq_datetime"] >= meses[i])
@@ -539,19 +518,11 @@ def generar_mapa(
                 zorder=5,
             )
 
-    ax.legend(
-        handles=leyenda,
-        loc="lower left",
-        title="Pixeles por mes",
-        frameon=True,
-        fancybox=True,
-    )
-    ax.set_title(titulo, weight="bold")
 
+def _anotaciones(ax, satelital, total_píxeles, res_texto):
+    """EPSG, pie de píxeles y fuente NASA FIRMS."""
     crs_num = 3857 if satelital else 4326
-    estilo_epsg = (
-        {"color": "#C0C0C0", "alpha": 0.65} if satelital else {}
-    )
+    estilo_epsg = {"color": "#C0C0C0", "alpha": 0.65} if satelital else {}
     ax.text(
         1.0,
         0.0,
@@ -583,45 +554,101 @@ def generar_mapa(
         color="black",
     )
 
-    ax.set_aspect("equal")
-    _logo_ivic(fig, ax, cfg.LOGO_IVIC, satelital, tr)
 
-    if guardar_como:
-        ext = Path(guardar_como).suffix.lower()
-        kwargs = {"dpi": dpi, "bbox_inches": "tight"}
-        if ext in (".png", ".jpg", ".jpeg"):
-            kwargs["pad_inches"] = 0.05
-        elif ext == ".pdf":
-            kwargs["format"] = "pdf"
-        elif ext == ".svg":
-            kwargs["format"] = "svg"
-
-        fig.savefig(guardar_como, **kwargs)
-        logger.info(f"Mapa guardado: {guardar_como}")
-
-    # ============================================
-    # BRÚJULA DE NORTE - Unicode ▲ + N
-    # ============================================
-    # Posición en coordenadas geográficas (EPSG:4326)
-    bx_deg = -73.5    # longitud oeste
-    by_deg = 15.0     # latitud norte
-    
-    # Convertir a coordenadas del mapa si es satelital (EPSG:3857)
+def _brujula(ax, satelital, tr):
+    """Brújula de norte compacta."""
+    bx_deg = -73.5
+    by_deg = 15.0
     if satelital and tr is not None:
         bx, by = tr.transform(bx_deg, by_deg)
     else:
         bx, by = bx_deg, by_deg
-    
-    # Color: plateado para satelital, negro para político
-    color_brujula = '#C0C0C0' if satelital else 'black'
-    alpha_brujula = 0.65 if satelital else 1.0
 
-    # Triángulo Unicode + letra N (compactos y juntos)
-    ax.text(bx, by + 0.08, '▲', ha='center', va='bottom',
-            fontsize=14, color=color_brujula, alpha=alpha_brujula,
-            zorder=15)
-    ax.text(bx, by, 'N', ha='center', va='top',
-            fontsize=9, fontweight='bold', color=color_brujula,
-            alpha=alpha_brujula, zorder=16)
+    color_brujula = "#C0C0C0" if satelital else "black"
+    alpha_brujula = 0.65 if satelital else 1.0
+    ax.text(
+        bx,
+        by + 0.08,
+        "▲",
+        ha="center",
+        va="bottom",
+        fontsize=14,
+        color=color_brujula,
+        alpha=alpha_brujula,
+        zorder=15,
+    )
+    ax.text(
+        bx,
+        by,
+        "N",
+        ha="center",
+        va="top",
+        fontsize=9,
+        fontweight="bold",
+        color=color_brujula,
+        alpha=alpha_brujula,
+        zorder=16,
+    )
+
+
+def _guardar(fig, guardar_como, dpi):
+    """Guarda la figura respetando el formato de salida."""
+    if not guardar_como:
+        return
+    ext = Path(guardar_como).suffix.lower()
+    kwargs = {"dpi": dpi, "bbox_inches": "tight"}
+    if ext in (".png", ".jpg", ".jpeg"):
+        kwargs["pad_inches"] = 0.05
+    elif ext == ".pdf":
+        kwargs["format"] = "pdf"
+    elif ext == ".svg":
+        kwargs["format"] = "svg"
+    fig.savefig(guardar_como, **kwargs)
+    logger.info(f"Mapa guardado: {guardar_como}")
+
+
+def generar_mapa(
+    gdf: gpd.GeoDataFrame,
+    world: gpd.GeoDataFrame,
+    meses: pd.DatetimeIndex,
+    satelital: bool,
+    esequibo: bool,
+    rayas: bool,
+    res_texto: str,
+    total_píxeles: int,
+    sensor_nombre: str,
+    guardar_como: str | None = None,
+    dpi: int = 300,
+) -> plt.Figure:
+    """Genera y muestra/guarda el mapa. Siempre retorna la figura."""
+    fig, ax = _figura_base()
+    gdf, world, tr, extent_mapa, crs_code = _configurar_modo(
+        ax, gdf, world, satelital
+    )
+
+    _plot_mundo(ax, world, satelital, rayas=rayas)
+    if cfg.modo_esequibo(esequibo, rayas) == "disputa":
+        _plot_esequibo(ax, crs_code, rayas=rayas, satelital=satelital)
+
+    _ticks_grados(ax, cfg.XTICKS_DEG, cfg.YTICKS_DEG, crs_code, cfg.EXTENT_DEG, tr)
+    _escala(ax, crs_code, extent_mapa)
+
+    titulo, leyenda, colores = _titulo_leyenda(meses, sensor_nombre, res_texto)
+    _plot_pixeles(ax, gdf, meses, colores)
+
+    ax.legend(
+        handles=leyenda,
+        loc="lower left",
+        title="Pixeles por mes",
+        frameon=True,
+        fancybox=True,
+    )
+    ax.set_title(titulo, weight="bold")
+
+    _anotaciones(ax, satelital, total_píxeles, res_texto)
+    ax.set_aspect("equal")
+    _logo_ivic(fig, ax, cfg.LOGO_IVIC, satelital, tr)
+    _brujula(ax, satelital, tr)
+    _guardar(fig, guardar_como, dpi)
 
     return fig
