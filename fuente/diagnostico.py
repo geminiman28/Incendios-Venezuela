@@ -19,21 +19,26 @@ _MODULOS = [
     "numpy",
 ]
 
+_RESULTADOS = []
+
 
 def _check(label, ruta, es_archivo=False):
-    """Imprime estado de ruta o módulo con emoji."""
+    """Imprime estado de ruta o módulo y registra el resultado."""
     if isinstance(ruta, str):
         try:
             __import__(ruta)
             print(f"  ✅ {ruta:<25} OK")
+            _RESULTADOS.append(True)
             return True
         except ImportError as e:
             print(f"  ❌ {ruta:<25} {e}")
+            _RESULTADOS.append(False)
             return False
 
     ok = ruta.exists()
     tipo = "archivo" if es_archivo else "carpeta"
     print(f"  {'✅' if ok else '❌'} {label:<25} {tipo:<8} {ruta}")
+    _RESULTADOS.append(ok)
     return ok
 
 
@@ -44,6 +49,7 @@ def diagnostico(sensor=None, meses=None):
     print("=" * 60)
     print("  DIAGNÓSTICO: Incendios Venezuela")
     print("=" * 60)
+    _RESULTADOS.clear()
 
     print("\n1. SISTEMA")
     print(f"   Python: {sys.version.split()[0]} | {sys.platform}")
@@ -83,11 +89,14 @@ def diagnostico(sensor=None, meses=None):
         print(f"   ❌ Sensor '{sensor}' no reconocido.")
 
     print("\n6. RESUMEN")
+    todo_ok = deps_ok and all(_RESULTADOS)
     if not deps_ok:
         print(
             "   ❌ Instala: pip install pandas geopandas"
             " matplotlib contextily pyproj numpy"
         )
+    elif not todo_ok:
+        print("   ❌ Faltan rutas, shapefiles o CSVs. Revisa secciones 3-5.")
     else:
         print("   ✅ Todo listo.")
     print("=" * 60)
