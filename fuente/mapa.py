@@ -305,12 +305,12 @@ def _plot_esequibo(ax, crs, rayas=False, satelital=False):
                 ax.add_patch(patch)
 
         # Fondo base del Esequibo
-        _add_patches(geom, facecolor="none" if satelital else "forestgreen", edgecolor="none", alpha=1.0, zorder=100)
+        _add_patches(geom, facecolor="none" if satelital else "forestgreen", edgecolor="none", alpha=1.0, zorder=3)
         if rayas:
             # Rayas grises 35% atenuación (solo cuando se solicita)
-            _add_patches(geom, facecolor="none", edgecolor="black", linewidth=1.5, hatch="/////", alpha=0.5, zorder=101)
+            _add_patches(geom, facecolor="none", edgecolor="black", linewidth=1.5, hatch="/////", alpha=0.5, zorder=4)
         # Borde negro
-        _add_patches(geom, facecolor="none", edgecolor="black", linewidth=g["esequibo"], alpha=1.0, zorder=102)
+        _add_patches(geom, facecolor="none", edgecolor="black", linewidth=g["esequibo"], alpha=1.0, zorder=10)
 
     except Exception as e:
         logger.warning(f"Error dibujando Esequibo: {e}")
