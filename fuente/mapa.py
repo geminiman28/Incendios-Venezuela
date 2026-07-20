@@ -556,19 +556,27 @@ def _anotaciones(ax, satelital, total_píxeles, res_texto):
 
 
 def _brujula(ax, satelital, tr):
-    """Brújula de norte compacta."""
+    """Brújula de norte compacta.
+
+    Satelital proyecta el mismo desplazamiento geográfico del modo
+    político: N en 15.0° y ▲ en 15.08°.
+    """
     bx_deg = -73.5
     by_deg = 15.0
+    tri_deg = by_deg + 0.08
+
     if satelital and tr is not None:
         bx, by = tr.transform(bx_deg, by_deg)
+        _, y_tri = tr.transform(bx_deg, tri_deg)
     else:
         bx, by = bx_deg, by_deg
+        y_tri = tri_deg
 
     color_brujula = "#C0C0C0" if satelital else "black"
     alpha_brujula = 0.65 if satelital else 1.0
     ax.text(
         bx,
-        by + 0.08,
+        y_tri,
         "▲",
         ha="center",
         va="bottom",
