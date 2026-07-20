@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+
+# Datos (no versionar CSVs ni shapefiles pesados)
+*.csv
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.zip
+
+# Salidas del programa
+*.png
+*.jpg
+*.pdf
+*.html
+
+# Spyder
+.spyproject/

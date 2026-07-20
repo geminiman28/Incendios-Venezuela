@@ -1,0 +1,62 @@
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environments
+.env
+.venv
+env/
+venv/
+
+# Spyder project settings
+.spyderproject
+.spyderworkspace
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints
+
+# ============================================================
+# Output generado (mantener carpeta, ignorar contenido)
+# ============================================================
+output/mapas/*
+!output/mapas/.gitkeep
+
+# Tests coverage
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Logs
+*.log
+
+# Backups manuales (prevenir futuros)
+*.bak
+*.bak2
+.backup_mejoras/
+.backup_script_*/
+
+# Archivos huérfanos de prueba
+test.png
+test_politico.png
+re
+subprocess

@@ -1,0 +1,215 @@
+"""Generador de mapas de incendios Venezuela.
+
+Uso terminal:
+    python -m fuente.principal --meses 2018-05 2018-06 --guardar
+    python -m fuente.principal --no-satelital --no-esequibo --rayas --guardar
+    python -m fuente.principal --diagnostico
+"""
+
+import sys
+from datetime import datetime
+from pathlib import Path
+
+import pandas as pd
+
+from fuente import configuracion as cfg
+from fuente.diagnostico import diagnostico
+from fuente.datos import procesar_datos
+from fuente.mapa import generar_mapa
+from fuente.utils import configurar_logging, get_logger
+
+logger = get_logger(__name__)
+
+OUTPUT_DIR = cfg.MAPAS_GENERADOS
+
+
+def _nombre_salida(args):
+    modo = "satelital" if args.satelital else "politico"
+    eseq = "_esequibo" if args.esequibo else ""
+    ray = "_rayas" if args.rayas else ""
+    meses_str = "-".join(f"{m.month:02d}" for m in args.meses)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    sensor_cod = args.sensor.replace(" ", "_").replace("(", "").replace(")", "")
+    nombre = f"{modo}{eseq}{ray}_{sensor_cod}_{args.meses[0].year}_meses{meses_str}_{timestamp}.png"
+    return str(OUTPUT_DIR / nombre)
+
+
+def _en_spyder():
+    """Detecta si estamos en Spyder/IPython."""
+    try:
+        from IPython import get_ipython
+        return get_ipython() is not None
+    except ImportError:
+        return False
+
+
+def _fmt_annos(annos):
+    """Resume años: '2012–2024' o '2012, 2014'."""
+    if not annos:
+        return "—"
+    if annos == list(range(annos[0], annos[-1] + 1)):
+        return f"{annos[0]}–{annos[-1]}"
+    return ", ".join(map(str, annos))
+
+
+def main():
+    configurar_logging()
+    parser = cfg.crear_parser()
+    args = parser.parse_args()
+
+    if args.diagnostico:
+        meses_diag = cfg.parsear_meses(args.meses)
+        diagnostico(sensor=args.sensor, meses=meses_diag)
+        return
+
+    if not cfg.verificar_rutas_criticas():
+        logger.warning("\n[!] Usa --diagnostico para detalles.")
+        return
+
+    meses = cfg.parsear_meses(args.meses)
+
+    logger.info("Procesando datos...")
+    gdf, world, gdf_e, ven, guy, stats = procesar_datos(
+        sensor=args.sensor,
+        meses=meses,
+        esequibo=args.esequibo,
+        rayas=args.rayas,
+    )
+
+    if gdf is None or gdf.empty:
+        logger.warning("[!] Sin píxeles tras filtrar -> mapa omitido.")
+        return
+
+    res_texto = cfg.RESOLUCION.get(args.sensor, "N/A")
+    total_píxeles = len(gdf)
+
+    guardar_como = args.guardar
+    if guardar_como is not None and not Path(guardar_como).is_absolute():
+        guardar_como = str(OUTPUT_DIR / guardar_como)
+
+    # Solo forzar backend Agg en terminal cuando solo se guarda (no en Spyder)
+    if guardar_como and not _en_spyder():
+        import matplotlib
+        matplotlib.use("Agg")
+
+    logger.info("Generando mapa...")
+    fig = generar_mapa(
+        gdf=gdf,
+        world=world,
+        meses=meses,
+        satelital=args.satelital,
+        esequibo=args.esequibo,
+        rayas=args.rayas,
+        res_texto=res_texto,
+        total_píxeles=total_píxeles,
+        sensor_nombre=args.sensor,
+        guardar_como=guardar_como,
+        dpi=args.dpi,
+    )
+
+    if guardar_como:
+        logger.info("Mapa guardado: %s", guardar_como)
+
+    if _en_spyder():
+        try:
+            import matplotlib.pyplot as plt
+            plt.show()
+            logger.info("Mapa mostrado en ventana de Spyder.")
+        except Exception:
+            logger.warning("No se pudo mostrar el mapa en Spyder.")
+    elif guardar_como:
+        import matplotlib.pyplot as plt
+        plt.close(fig)
+        logger.info("Mapa cerrado (terminal sin visualizacion).")
+
+    periodo = cfg.formatear_periodo(meses)
+
+    # ============================================================
+    # INFORME
+    # ============================================================
+    print("\n" + "=" * 60)
+    print("  Informe")
+    print("=" * 60)
+
+    # --- PARTE A: ANÁLISIS DE DATOS DISPONIBLES EN CARPETAS ---
+    print("\n  [A] DATOS DISPONIBLES EN CARPETAS CSV")
+    print("      " + "-" * 46)
+
+    for sensor_nombre, pref, folder in [
+        ("VIIRS (SNPP)", "viirs-snpp", "VIIRS"),
+        ("VIIRS (JPSS1)", "viirs-jpss1", "VIIRS"),
+        ("MODIS (Aqua + Terra)", "modis", "MODIS"),
+    ]:
+        if folder == "MODIS":
+            v_path = cfg.DATA / "MODIS" / "Datos Venezuela MODIS"
+            pat = "modis_*.csv"
+        else:
+            v_path = cfg.DATA / "VIIRS" / "Datos Venezuela viirs" / f"Datos Venezuela {pref}"
+            pat = f"{pref}_*.csv"
+
+        v_files = sorted(v_path.glob(pat)) if v_path.exists() else []
+        annos = sorted({int(f.stem.split("_")[1]) for f in v_files if f.stem.split("_")[1].isdigit()})
+
+        print(f"\n      📡 {sensor_nombre}")
+        print(f"          Años: {_fmt_annos(annos)} ({len(v_files)} archivos)")
+
+        for csv_file in v_files:
+            try:
+                df = pd.read_csv(csv_file, usecols=["acq_date"])
+                fechas = pd.to_datetime(df["acq_date"], errors="coerce").dropna()
+                anno = fechas.iloc[0].year
+                meses_disp = set(fechas.dt.month.unique())
+                meses_faltan = [cfg.MESES_ES[m-1].capitalize() for m in range(1,13) if m not in meses_disp]
+                if meses_faltan:
+                    print(f"          {anno}: ❌ Faltan {', '.join(meses_faltan)} ({len(meses_disp)}/12)")
+                else:
+                    print(f"          {anno}: ✅ Completo (12/12)")
+            except Exception:
+                pass
+
+    # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---
+    print("\n  [B] CONFIGURACIÓN DE ESTA EJECUCIÓN")
+    print("      " + "-" * 46)
+    print(f"      Sensor:      {args.sensor}")
+    print(f"      Año:         {meses[0].year}")
+    print(f"      Periodo:     {periodo}")
+    print(f"      Meses:       {', '.join(cfg.MESES_ES[m.month - 1].capitalize() for m in meses[:-1])}")
+    print(f"      Modo:        {'Satelital' if args.satelital else 'Politico'}")
+    esq_str = "Incluido (unidad)" if args.esequibo and not args.rayas else "Excluido" if not args.esequibo else "Area en disputa (rayas)"
+    print(f"      Esequibo:    {esq_str}")
+    print(f"      Resolución:  {res_texto}")
+
+    # --- PARTE C: DATOS EMPLEADOS ---
+    print("\n  [C] DATOS EMPLEADOS")
+    print("      " + "-" * 46)
+    print(f"      Venezuela:        {stats['venezuela']:>6} píxeles")
+    print(f"      Guyana:           {stats['guyana']:>6} píxeles")
+    print(f"      Esequibo:         {stats['esequibo']:>6} píxeles")
+    print("      " + "-" * 46)
+    if args.esequibo and not args.rayas:
+        print(f"      Venezuela Total:  {stats['venezuela_total']:>6} píxeles")
+        print("        (Venezuela + Esequibo como unidad)")
+    else:
+        print(f"      Venezuela Total:  {stats['venezuela']:>6} píxeles")
+        print("        (Esequibo excluido)")
+    print(f"      Total en mapa:    {total_píxeles:>6} píxeles")
+
+    # --- PARTE D: RESULTADOS POR MES ---
+    print("\n  [D] RESULTADOS POR MES")
+    print("      " + "-" * 46)
+    for i in range(len(meses) - 1):
+        sub = gdf[(gdf["acq_datetime"] >= meses[i]) & (gdf["acq_datetime"] < meses[i + 1])]
+        print(f"      {cfg.MESES_ES[meses[i].month - 1].capitalize():<12} {len(sub):>8} píxeles")
+    print(f"      {'TOTAL':<12} {total_píxeles:>8} píxeles")
+
+    # --- PARTE E: ARCHIVO GENERADO ---
+    if guardar_como:
+        print(f"\n  [E] ARCHIVO GENERADO")
+        print("      " + "-" * 46)
+        print(f"      {guardar_como}")
+
+    print("\n" + "=" * 60)
+
+
+if __name__ == "__main__":
+    main()
