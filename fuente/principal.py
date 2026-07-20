@@ -169,8 +169,10 @@ def main():
                     print(f"          {anno}: ❌ Faltan {', '.join(meses_faltan)} ({len(meses_disp)}/12)")
                 else:
                     print(f"          {anno}: ✅ Completo (12/12)")
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(
+                    "No se pudo leer %s para el informe: %s", ruta, e
+                )
 
     # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---
     print("\n  [B] CONFIGURACIÓN DE ESTA EJECUCIÓN")
