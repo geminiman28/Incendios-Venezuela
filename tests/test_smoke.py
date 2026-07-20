@@ -62,6 +62,13 @@ class TestConfiguracion(unittest.TestCase):
         self.assertEqual(cfg.modo_esequibo(False, False), "excluido")
 
 
+    def test_logo_posicion_valida(self):
+        self.assertIn(
+            cfg.LOGO_POSICION,
+            {"superior_derecha", "superior_izquierda"},
+        )
+
+
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
 

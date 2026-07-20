@@ -25,6 +25,11 @@ logger = get_logger(__name__)
 # Constantes de estilo visual (tema centralizado)
 # ------------------------------------------------------------------
 ESTILO = {
+    "logo": {
+        "margen": 12,
+        "factor_altura": 0.76,
+        "posiciones": {"superior_derecha", "superior_izquierda"},
+    },
     "satelital": {
         "otros": {"facecolor": "gray", "edgecolor": "black", "alpha": 0.30},
         "ven": {"facecolor": "none", "edgecolor": "black"},
@@ -363,13 +368,13 @@ def _logo_ivic(fig, ax, logo_path, satelital=False, transformer=None):
         p0 = ax.transData.transform((x_ref, y0))
         p2 = ax.transData.transform((x_ref, y2))
 
-        alto_px = abs(p2[1] - p0[1]) * 0.76
+        alto_px = abs(p2[1] - p0[1]) * ESTILO["logo"]["factor_altura"]
         if alto_px <= 0:
             return
 
         ancho_px = alto_px * (w_img / h_img)
 
-        margen = 12
+        margen = ESTILO["logo"]["margen"]
         max_ancho = axbb.width - 2 * margen
         max_alto = axbb.height - 2 * margen
         if max_ancho <= 0 or max_alto <= 0:
@@ -383,10 +388,19 @@ def _logo_ivic(fig, ax, logo_path, satelital=False, transformer=None):
         ancho_px *= escala
         alto_px *= escala
 
-        x_right_px = axbb.x1 - margen
+        pos = getattr(cfg, "LOGO_POSICION", "superior_derecha")
+        if pos not in ESTILO["logo"]["posiciones"]:
+            logger.warning("Posición de logo inválida: %s", pos)
+            pos = "superior_derecha"
+
         y_top_px = axbb.y1 - margen
-        x_left_px = x_right_px - ancho_px
         y_bottom_px = y_top_px - alto_px
+        if pos == "superior_izquierda":
+            x_left_px = axbb.x0 + margen
+            x_right_px = x_left_px + ancho_px
+        else:
+            x_right_px = axbb.x1 - margen
+            x_left_px = x_right_px - ancho_px
 
         inf_izq = inv_data.transform([(x_left_px, y_bottom_px)])[0]
         sup_der = inv_data.transform([(x_right_px, y_top_px)])[0]
