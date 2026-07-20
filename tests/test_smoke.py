@@ -69,6 +69,18 @@ class TestConfiguracion(unittest.TestCase):
         )
 
 
+    def test_verificar_espacio_usa_libre(self):
+        from unittest.mock import patch
+        from fuente import utils
+
+        mb = 1024 * 1024
+        with patch(
+            "fuente.utils.shutil.disk_usage",
+            return_value=(100 * mb, 90 * mb, 10 * mb),
+        ):
+            self.assertFalse(utils.verificar_espacio(cfg.RAIZ, 11))
+            self.assertTrue(utils.verificar_espacio(cfg.RAIZ, 10))
+
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
 
