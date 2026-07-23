@@ -6,7 +6,7 @@ import pandas as pd
 import geopandas as gpd
 
 from fuente import configuracion as cfg
-from fuente.utils import get_logger
+from fuente.utils import fmt_annos, get_logger
 
 logger = get_logger(__name__)
 
@@ -31,15 +31,6 @@ def _annos_en_directorio(directorio, patron):
             if p.isdigit() and len(p) == 4
         }
     )
-
-
-def _fmt_annos(annos):
-    """Resume annos: '2012–2024' o '2012, 2014'."""
-    if not annos:
-        return "—"
-    if annos == list(range(annos[0], annos[-1] + 1)):
-        return f"{annos[0]}–{annos[-1]}"
-    return ", ".join(map(str, annos))
 
 
 def reportar_disponibilidad():
@@ -72,8 +63,8 @@ def reportar_disponibilidad():
                 / f"Datos Guyana {pref}"
             )
             pat = f"{pref}_*.csv"
-        annos_v = _fmt_annos(_annos_en_directorio(v, pat))
-        annos_g = _fmt_annos(_annos_en_directorio(g, pat))
+        annos_v = fmt_annos(_annos_en_directorio(v, pat))
+        annos_g = fmt_annos(_annos_en_directorio(g, pat))
         print(f"{sensor:<15} {annos_v:<16} {annos_g:<16}")
 
 
@@ -112,22 +103,6 @@ def _cargar_csvs(rutas):
         return pd.DataFrame()
 
     return pd.concat([df[list(cols)] for df in fragmentos], ignore_index=True)
-
-
-def _resumen(df, meses, etiqueta):
-    """Resumen compacto de cobertura mensual."""
-    if df.empty or len(meses) < 2:
-        return f"[{etiqueta}] SIN DATOS"
-
-    rango = f"{df.acq_datetime.min().date()} → {df.acq_datetime.max().date()}"
-    periodos = pd.period_range(start=meses[0], end=meses[-2], freq="M")
-    presentes = df.acq_datetime.dt.to_period("M").unique()
-    faltan = [p for p in periodos if p not in presentes]
-
-    if faltan:
-        meses_f = ", ".join(cfg.MESES_ES[p.month - 1] for p in faltan)
-        return f"[{etiqueta}] {rango}  |  faltan: {meses_f}"
-    return f"[{etiqueta}] {rango}  |  OK"
 
 
 def _parse_datetime(df):
@@ -183,7 +158,6 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
     """Carga, filtra y procesa datos. Retorna (gdf, world, gdf_e, ven, guy)."""
     ven, guy = leer_csv(sensor, meses)
 
-    periodo = cfg.formatear_periodo(meses)
     ven = filtrar_por_meses(ven, meses)   # CORREGIDO: filtrar Venezuela
     guy = filtrar_por_meses(guy, meses)
     gdf_ven = a_geo(ven)

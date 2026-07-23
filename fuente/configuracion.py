@@ -88,7 +88,11 @@ SHP_WORLD = {
 }
 
 MAPAS_GENERADOS = BASE / "output" / "mapas"
-MAPAS_GENERADOS.mkdir(parents=True, exist_ok=True)
+
+
+def asegurar_directorio_salida():
+    """Crea la carpeta de salida si no existe (llamar al generar mapas)."""
+    MAPAS_GENERADOS.mkdir(parents=True, exist_ok=True)
 
 LOGO_IVIC = _resolver_ruta(
     RAIZ, _ENV, "INCENDIOS_LOGO", "IVICvertical.png"
@@ -196,7 +200,7 @@ def crear_parser():
         "--sensor",
         choices=SENSORES_VALIDOS,
         default=SENSOR_DEFAULT,
-        help="Sensor (default: VIIRS JPSS1)",
+        help=f"Sensor (default: {SENSOR_DEFAULT})",
     )
     parser.add_argument(
         "--meses",
@@ -269,6 +273,11 @@ def crear_parser():
         "--diagnostico",
         action="store_true",
         help="Verificar rutas y dependencias.",
+    )
+    parser.add_argument(
+        "--disponibilidad",
+        action="store_true",
+        help="Mostrar annos disponibles por sensor y salir.",
     )
     parser.add_argument(
         "--dpi",

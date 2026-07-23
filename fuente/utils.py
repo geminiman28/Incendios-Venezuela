@@ -62,3 +62,12 @@ def verificar_espacio(ruta: Path, mb_minimos: int = 500) -> bool:
         return (libre_b / (1024 * 1024)) >= mb_minimos
     except Exception:
         return True  # Si no podemos verificar, asumimos que sí hay espacio
+
+
+def fmt_annos(annos):
+    """Resume annos: '2012-2024' o '2012, 2014'."""
+    if not annos:
+        return "\u2014"
+    if annos == list(range(annos[0], annos[-1] + 1)):
+        return f"{annos[0]}\u2013{annos[-1]}"
+    return ", ".join(map(str, annos))

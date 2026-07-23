@@ -103,6 +103,4 @@ def diagnostico(sensor=None, meses=None):
 
 
 if __name__ == "__main__":
-    import pandas as pd
-
     diagnostico()

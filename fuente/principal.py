@@ -7,31 +7,18 @@ Uso terminal:
 """
 
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from fuente import configuracion as cfg
 from fuente.diagnostico import diagnostico
-from fuente.datos import procesar_datos
-from fuente.mapa import generar_mapa
-from fuente.utils import configurar_logging, get_logger
+from fuente.datos import procesar_datos, reportar_disponibilidad
+from fuente.utils import configurar_logging, fmt_annos, get_logger
 
 logger = get_logger(__name__)
 
 OUTPUT_DIR = cfg.MAPAS_GENERADOS
-
-
-def _nombre_salida(args):
-    modo = "satelital" if args.satelital else "politico"
-    eseq = "_esequibo" if args.esequibo else ""
-    ray = "_rayas" if args.rayas else ""
-    meses_str = "-".join(f"{m.month:02d}" for m in args.meses)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sensor_cod = args.sensor.replace(" ", "_").replace("(", "").replace(")", "")
-    nombre = f"{modo}{eseq}{ray}_{sensor_cod}_{args.meses[0].year}_meses{meses_str}_{timestamp}.png"
-    return str(OUTPUT_DIR / nombre)
 
 
 def _en_spyder():
@@ -43,13 +30,12 @@ def _en_spyder():
         return False
 
 
-def _fmt_annos(annos):
-    """Resume años: '2012–2024' o '2012, 2014'."""
-    if not annos:
-        return "—"
-    if annos == list(range(annos[0], annos[-1] + 1)):
-        return f"{annos[0]}–{annos[-1]}"
-    return ", ".join(map(str, annos))
+# Backend Agg en terminal con --guardar: fijar ANTES de importar pyplot
+if "--guardar" in sys.argv and not _en_spyder():
+    import matplotlib
+    matplotlib.use("Agg")
+
+from fuente.mapa import generar_mapa  # noqa: E402 (import tras fijar backend)
 
 
 def main():
@@ -62,9 +48,15 @@ def main():
         diagnostico(sensor=args.sensor, meses=meses_diag)
         return
 
+    if args.disponibilidad:
+        reportar_disponibilidad()
+        return
+
     if not cfg.verificar_rutas_criticas():
         logger.warning("\n[!] Usa --diagnostico para detalles.")
         return
+
+    cfg.asegurar_directorio_salida()
 
     meses = cfg.parsear_meses(args.meses)
 
@@ -92,10 +84,6 @@ def main():
             "Sin --guardar y fuera de Spyder: no se mostrara ni guardara mapa."
         )
 
-    # Solo forzar backend Agg en terminal cuando solo se guarda (no en Spyder)
-    if guardar_como and not _en_spyder():
-        import matplotlib
-        matplotlib.use("Agg")
 
     logger.info("Generando mapa...")
     fig = generar_mapa(
@@ -156,7 +144,7 @@ def main():
         annos = sorted({int(f.stem.split("_")[1]) for f in v_files if f.stem.split("_")[1].isdigit()})
 
         print(f"\n      📡 {sensor_nombre}")
-        print(f"          Años: {_fmt_annos(annos)} ({len(v_files)} archivos)")
+        print(f"          Años: {fmt_annos(annos)} ({len(v_files)} archivos)")
 
         for csv_file in v_files:
             try:
@@ -171,7 +159,7 @@ def main():
                     print(f"          {anno}: ✅ Completo (12/12)")
             except Exception as e:
                 logger.warning(
-                    "No se pudo leer %s para el informe: %s", ruta, e
+                    "No se pudo leer %s para el informe: %s", csv_file, e
                 )
 
     # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---
