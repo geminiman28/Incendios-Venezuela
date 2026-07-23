@@ -128,15 +128,18 @@ def _ticks_grados(ax, xticks, yticks, crs, extent, transformer):
     ax.set_xticklabels([f"{x}°" for x in xticks])
     ax.set_yticklabels([f"{y}°" for y in yticks])
 
-def _plot_mundo(ax, world, satelital, rayas=False):
-    """Plotea Venezuela, disputa y otros paises desde el mismo world."""
+def _plot_mundo(ax, world, satelital):
+    """Plotea Venezuela, disputa y otros paises desde el mismo world.
+
+    Cada capa se dibuja en dos pasadas: relleno (zorder=3, bajo los
+    puntos) y borde (zorder 9-10, sobre los puntos).
+    """
     if world.empty or "ADMIN" not in world.columns:
         return
 
     mask_ven = world.ADMIN.str.contains("Venezuela", case=False, na=False)
-    ven = world[mask_ven]
 
-    mask_disputa = pd.Series([False] * len(world))
+    mask_disputa = pd.Series(False, index=world.index)
     if "TYPE" in world.columns:
         mask_disputa = world["TYPE"].str.contains(
             "Disputed", case=False, na=False
@@ -146,135 +149,40 @@ def _plot_mundo(ax, world, satelital, rayas=False):
             "Disputed", case=False, na=False
         )
 
-    disputa = world[mask_disputa]
-    otros = world[~(mask_ven | mask_disputa)]
-
     tema = ESTILO["satelital" if satelital else "politico"]
+    g = ESTILO["grosor"]
 
-    if satelital:
-        otros.plot(
+    capas = [
+        # (subset, clave_tema, lw_borde, zorder_borde)
+        (world[~(mask_ven | mask_disputa)], "otros", g["otros"], 9),
+        (world[mask_ven], "ven", g["venezuela"], 10),
+        (world[mask_disputa], "disputa", g["disputa"], 10),
+    ]
+
+    for sub, clave, lw, zborde in capas:
+        if sub.empty:
+            continue
+        estilo = tema[clave]
+        alpha = estilo.get("alpha", 1.0)
+        # Relleno bajo los puntos
+        sub.plot(
             ax=ax,
-            facecolor=tema["otros"]["facecolor"],
+            facecolor=estilo["facecolor"],
             edgecolor="none",
             linewidth=0,
-            alpha=tema["otros"]["alpha"],
+            alpha=alpha,
             zorder=3,
         )
-        # Frontera otros países (solo línea, encima de puntos)
-        otros.plot(
+        # Borde sobre los puntos
+        sub.plot(
             ax=ax,
             facecolor="none",
-            edgecolor=tema["otros"]["edgecolor"],
-            linewidth=0.8,
-            alpha=tema["otros"]["alpha"],
-            zorder=9,
+            edgecolor=estilo["edgecolor"],
+            linewidth=lw,
+            alpha=alpha,
+            zorder=zborde,
         )
-        if not ven.empty:
-            ven.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="none",
-                linewidth=0,
-                zorder=3,
-            )
-        # Frontera Venezuela (solo línea, encima de puntos)
-        if not ven.empty:
-            ven.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="black",
-                linewidth=1.5,
-                zorder=10,
-            )
-        if not disputa.empty:
-            disputa.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="none",
-                linewidth=0,
-                zorder=3,
-            )
-        # Frontera disputa (solo línea, encima de puntos)
-        if not disputa.empty:
-            disputa.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="black",
-                linewidth=1.5,
-                zorder=10,
-            )
-    else:
-        otros.plot(
-            ax=ax,
-            facecolor=tema["otros"]["facecolor"],
-            edgecolor="none",
-            linewidth=0,
-            alpha=tema["otros"]["alpha"],
-            zorder=3,
-        )
-        # Frontera otros países (solo línea, encima de puntos)
-        otros.plot(
-            ax=ax,
-            facecolor="none",
-            edgecolor=tema["otros"]["edgecolor"],
-            linewidth=0.8,
-            alpha=tema["otros"]["alpha"],
-            zorder=9,
-        )
-        if not ven.empty:
-            ven.plot(
-                ax=ax,
-                facecolor=tema["ven"]["facecolor"],
-                edgecolor="none",
-                linewidth=0,
-                alpha=1.0,
-                zorder=3,
-            )
-        # Frontera Venezuela (solo línea, encima de puntos)
-        if not ven.empty:
-            ven.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="none",
-                linewidth=0,
-                zorder=3,
-            )
-        # Frontera Venezuela (solo línea, encima de puntos)
-        if not ven.empty:
-            ven.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="black",
-                linewidth=1.5,
-                zorder=10,
-            )
-        if not disputa.empty:
-            disputa.plot(
-                ax=ax,
-                facecolor=tema["ven"]["facecolor"],
-                edgecolor="none",
-                linewidth=0,
-                alpha=1.0,
-                zorder=3,
-            )
-        # Frontera disputa (solo línea, encima de puntos)
-        if not disputa.empty:
-            disputa.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="none",
-                linewidth=0,
-                zorder=3,
-            )
-        # Frontera disputa (solo línea, encima de puntos)
-        if not disputa.empty:
-            disputa.plot(
-                ax=ax,
-                facecolor="none",
-                edgecolor="black",
-                linewidth=1.5,
-                zorder=10,
-            )
+
 
 def _plot_esequibo(ax, crs, rayas=False, satelital=False):
     """Dibuja Esequibo con matplotlib.patches.Polygon (sin descartes)."""
@@ -634,7 +542,7 @@ def generar_mapa(
         ax, gdf, world, satelital
     )
 
-    _plot_mundo(ax, world, satelital, rayas=rayas)
+    _plot_mundo(ax, world, satelital)
     if cfg.modo_esequibo(esequibo, rayas) == "disputa":
         _plot_esequibo(ax, crs_code, rayas=rayas, satelital=satelital)
 
