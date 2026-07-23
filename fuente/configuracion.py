@@ -196,7 +196,7 @@ def crear_parser():
         "--sensor",
         choices=SENSORES_VALIDOS,
         default=SENSOR_DEFAULT,
-        help="Sensor (default: VIIRS JPSS1)",
+        help=f"Sensor (default: {SENSOR_DEFAULT})",
     )
     parser.add_argument(
         "--meses",

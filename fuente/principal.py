@@ -171,7 +171,7 @@ def main():
                     print(f"          {anno}: ✅ Completo (12/12)")
             except Exception as e:
                 logger.warning(
-                    "No se pudo leer %s para el informe: %s", ruta, e
+                    "No se pudo leer %s para el informe: %s", csv_file, e
                 )
 
     # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---

@@ -61,3 +61,6 @@ test_politico.png
 re
 subprocess
 datos/
+.spyproject/
+*.pyc
+analisis_proyecto.txt
