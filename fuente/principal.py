@@ -7,15 +7,13 @@ Uso terminal:
 """
 
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 
 from fuente import configuracion as cfg
 from fuente.diagnostico import diagnostico
-from fuente.datos import procesar_datos
-from fuente.mapa import generar_mapa
+from fuente.datos import procesar_datos, reportar_disponibilidad
 from fuente.utils import configurar_logging, fmt_annos, get_logger
 
 logger = get_logger(__name__)
@@ -32,6 +30,14 @@ def _en_spyder():
         return False
 
 
+# Backend Agg en terminal con --guardar: fijar ANTES de importar pyplot
+if "--guardar" in sys.argv and not _en_spyder():
+    import matplotlib
+    matplotlib.use("Agg")
+
+from fuente.mapa import generar_mapa  # noqa: E402 (import tras fijar backend)
+
+
 def main():
     configurar_logging()
     parser = cfg.crear_parser()
@@ -42,9 +48,15 @@ def main():
         diagnostico(sensor=args.sensor, meses=meses_diag)
         return
 
+    if args.disponibilidad:
+        reportar_disponibilidad()
+        return
+
     if not cfg.verificar_rutas_criticas():
         logger.warning("\n[!] Usa --diagnostico para detalles.")
         return
+
+    cfg.asegurar_directorio_salida()
 
     meses = cfg.parsear_meses(args.meses)
 
@@ -72,10 +84,6 @@ def main():
             "Sin --guardar y fuera de Spyder: no se mostrara ni guardara mapa."
         )
 
-    # Solo forzar backend Agg en terminal cuando solo se guarda (no en Spyder)
-    if guardar_como and not _en_spyder():
-        import matplotlib
-        matplotlib.use("Agg")
 
     logger.info("Generando mapa...")
     fig = generar_mapa(
