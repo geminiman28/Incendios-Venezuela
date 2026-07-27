@@ -37,6 +37,7 @@ class TestConfiguracion(unittest.TestCase):
         self.assertEqual(args.satelital, not cfg.MODO_POLITICO)
         self.assertEqual(args.esequibo, cfg.MOSTRAR_ESEQUIBO)
         self.assertEqual(args.rayas, cfg.MOSTRAR_RAYAS)
+        self.assertEqual(args.cobertura, cfg.COBERTURA_DEFAULT)
 
 
     def test_parsear_meses(self):
@@ -120,6 +121,17 @@ class TestDatos(unittest.TestCase):
             gdf = a_geo(ven)
             self.assertTrue(hasattr(gdf, "geometry"))
             self.assertEqual(gdf.crs.to_string(), "EPSG:4326")
+
+    def test_cobertura_mensual(self):
+        from fuente.datos import archivos_csv_venezuela, cobertura_mensual
+        archivos = archivos_csv_venezuela("VIIRS (JPSS1)")
+        if not archivos:
+            self.skipTest("Sin CSVs VIIRS JPSS1 de Venezuela")
+        resultado = cobertura_mensual(archivos[0])
+        self.assertIsNotNone(resultado)
+        anno, meses = resultado
+        self.assertGreaterEqual(anno, 2000)
+        self.assertTrue(all(1 <= m <= 12 for m in meses))
 
 
 if __name__ == "__main__":

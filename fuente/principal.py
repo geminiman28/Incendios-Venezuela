@@ -9,11 +9,14 @@ Uso terminal:
 import sys
 from pathlib import Path
 
-import pandas as pd
-
 from fuente import configuracion as cfg
 from fuente.diagnostico import diagnostico
-from fuente.datos import procesar_datos, reportar_disponibilidad
+from fuente.datos import (
+    archivos_csv_venezuela,
+    cobertura_mensual,
+    procesar_datos,
+    reportar_disponibilidad,
+)
 from fuente.utils import configurar_logging, fmt_annos, get_logger
 
 logger = get_logger(__name__)
@@ -128,39 +131,38 @@ def main():
     print("\n  [A] DATOS DISPONIBLES EN CARPETAS CSV")
     print("      " + "-" * 46)
 
-    for sensor_nombre, pref, folder in [
-        ("VIIRS (SNPP)", "viirs-snpp", "VIIRS"),
-        ("VIIRS (JPSS1)", "viirs-jpss1", "VIIRS"),
-        ("MODIS (Aqua + Terra)", "modis", "MODIS"),
-    ]:
-        if folder == "MODIS":
-            v_path = cfg.DATA / "MODIS" / "Datos Venezuela MODIS"
-            pat = "modis_*.csv"
-        else:
-            v_path = cfg.DATA / "VIIRS" / "Datos Venezuela viirs" / f"Datos Venezuela {pref}"
-            pat = f"{pref}_*.csv"
-
-        v_files = sorted(v_path.glob(pat)) if v_path.exists() else []
-        annos = sorted({int(f.stem.split("_")[1]) for f in v_files if f.stem.split("_")[1].isdigit()})
+    for sensor_nombre in cfg.SENSORES_VALIDOS:
+        v_files = archivos_csv_venezuela(sensor_nombre)
+        annos = sorted(
+            {
+                int(f.stem.split("_")[1])
+                for f in v_files
+                if f.stem.split("_")[1].isdigit()
+            }
+        )
 
         print(f"\n      📡 {sensor_nombre}")
         print(f"          Años: {fmt_annos(annos)} ({len(v_files)} archivos)")
 
+        if not args.cobertura:
+            if v_files:
+                print("          (--cobertura para detalle mes a mes)")
+            continue
+
         for csv_file in v_files:
-            try:
-                df = pd.read_csv(csv_file, usecols=["acq_date"])
-                fechas = pd.to_datetime(df["acq_date"], errors="coerce").dropna()
-                anno = fechas.iloc[0].year
-                meses_disp = set(fechas.dt.month.unique())
-                meses_faltan = [cfg.MESES_ES[m-1].capitalize() for m in range(1,13) if m not in meses_disp]
-                if meses_faltan:
-                    print(f"          {anno}: ❌ Faltan {', '.join(meses_faltan)} ({len(meses_disp)}/12)")
-                else:
-                    print(f"          {anno}: ✅ Completo (12/12)")
-            except Exception as e:
-                logger.warning(
-                    "No se pudo leer %s para el informe: %s", csv_file, e
-                )
+            resultado = cobertura_mensual(csv_file)
+            if resultado is None:
+                continue
+            anno, meses_disp = resultado
+            meses_faltan = [
+                cfg.MESES_ES[m - 1].capitalize()
+                for m in range(1, 13)
+                if m not in meses_disp
+            ]
+            if meses_faltan:
+                print(f"          {anno}: ❌ Faltan {', '.join(meses_faltan)} ({len(meses_disp)}/12)")
+            else:
+                print(f"          {anno}: ✅ Completo (12/12)")
 
     # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---
     print("\n  [B] CONFIGURACIÓN DE ESTA EJECUCIÓN")
