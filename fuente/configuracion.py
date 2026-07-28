@@ -217,6 +217,34 @@ SENSOR_A_PRODUCTO = {
 
 PRODUCTO_DEFAULT = SENSOR_A_PRODUCTO[SENSOR_DEFAULT]
 
+# --- Productos FRP: mismos CSVs FIRMS, valor continuo en MW ---
+PRODUCTOS["firms_modis_frp"] = {
+    **PRODUCTOS["firms_modis_presencia"],
+    "variable": "frp",
+    "unidad": "MW",
+    "columna_valor": "frp",
+    "agregaciones": ("maximo", "promedio"),
+    "coloracion": "continua_valor",
+    "paleta": "YlOrRd",
+    "leyenda": "colorbar",
+    "vmin": 0,
+    "vmax": 300,
+    "res_deg": 0.0090,
+}
+PRODUCTOS["firms_viirs_jpss1_frp"] = {
+    **PRODUCTOS["firms_viirs_jpss1_presencia"],
+    "variable": "frp",
+    "unidad": "MW",
+    "columna_valor": "frp",
+    "agregaciones": ("maximo", "promedio"),
+    "coloracion": "continua_valor",
+    "paleta": "YlOrRd",
+    "leyenda": "colorbar",
+    "vmin": 0,
+    "vmax": 300,
+    "res_deg": 0.0034,
+}
+
 
 def ficha(producto):
     """Devuelve la ficha del producto o falla con mensaje claro."""
@@ -233,6 +261,20 @@ def resolver_producto(args):
     if getattr(args, "producto", None):
         return args.producto
     return SENSOR_A_PRODUCTO[args.sensor]
+
+
+def fuentes_csv_unicas():
+    """Fichas sin duplicar (carpeta_ven, patron_glob).
+
+    FRP comparte CSVs con presencia: para disponibilidad e informe
+    basta listar cada fuente de datos una sola vez.
+    """
+    unicas = {}
+    for producto, f in PRODUCTOS.items():
+        clave = (str(f["carpeta_ven"]), f["patron_glob"])
+        if clave not in unicas:
+            unicas[clave] = (producto, f)
+    return unicas.values()
 
 
 def _rutas_csv(meses):
@@ -286,6 +328,12 @@ def crear_parser():
         choices=list(PRODUCTOS),
         default=None,
         help="Producto del registro (prioridad sobre --sensor).",
+    )
+    parser.add_argument(
+        "--agregacion",
+        choices=["maximo", "promedio"],
+        default="maximo",
+        help="Agregacion por pixel en productos de valor continuo (default: maximo)",
     )
     parser.add_argument(
         "--meses",

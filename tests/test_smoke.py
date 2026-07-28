@@ -105,6 +105,8 @@ class TestConfiguracion(unittest.TestCase):
                 "firms_viirs_snpp_presencia",
                 "firms_viirs_jpss1_presencia",
                 "firms_modis_presencia",
+                "firms_modis_frp",
+                "firms_viirs_jpss1_frp",
             },
         )
         for sensor in cfg.SENSORES_VALIDOS:
@@ -119,7 +121,8 @@ class TestConfiguracion(unittest.TestCase):
         }
         for producto, f in cfg.PRODUCTOS.items():
             self.assertTrue(campos.issubset(f.keys()), f"Falta campo en {producto}")
-            self.assertEqual(cfg.SENSOR_A_PRODUCTO[f["nombre"]], producto)
+            if producto in cfg.SENSOR_A_PRODUCTO.values():
+                self.assertEqual(cfg.SENSOR_A_PRODUCTO[f["nombre"]], producto)
 
     def test_resolver_producto(self):
         parser = cfg.crear_parser()
@@ -203,6 +206,97 @@ class TestDatos(unittest.TestCase):
         meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
         resultado = procesar_datos("firms_viirs_jpss1_presencia", meses, esequibo=True, rayas=False)
         self.assertEqual(len(resultado), 7)
+
+
+class TestProductosFRP(unittest.TestCase):
+    """Tests de productos de valor continuo (FRP)."""
+
+    def _gdf_frp(self):
+        import geopandas as gpd
+
+        df = pd.DataFrame({
+            "latitude": [8.0, 8.001, 5.0],
+            "longitude": [-62.0, -62.001, -66.0],
+            "acq_date": ["2018-05-01"] * 3,
+            "acq_datetime": pd.to_datetime(["2018-05-01"] * 3),
+            "frp": [100.0, 300.0, 50.0],
+        })
+        return gpd.GeoDataFrame(
+            df,
+            geometry=gpd.points_from_xy(df.longitude, df.latitude),
+            crs="EPSG:4326",
+        )
+
+    def test_fichas_frp(self):
+        for producto in ("firms_modis_frp", "firms_viirs_jpss1_frp"):
+            f = cfg.ficha(producto)
+            self.assertEqual(f["columna_valor"], "frp")
+            self.assertEqual(f["unidad"], "MW")
+            self.assertEqual(f["coloracion"], "continua_valor")
+            self.assertEqual((f["vmin"], f["vmax"]), (0, 300))
+            self.assertIn("maximo", f["agregaciones"])
+            self.assertIn("promedio", f["agregaciones"])
+            self.assertGreater(f["res_deg"], 0)
+
+    def test_fuentes_csv_unicas(self):
+        self.assertEqual(len(cfg.PRODUCTOS), 5)
+        self.assertEqual(len(cfg.fuentes_csv_unicas()), 3)
+
+    def test_parser_agregacion(self):
+        parser = cfg.crear_parser()
+        args = parser.parse_args([])
+        self.assertEqual(args.agregacion, "maximo")
+        args = parser.parse_args(["--agregacion", "promedio"])
+        self.assertEqual(args.agregacion, "promedio")
+
+    def test_agregacion_maximo_y_promedio(self):
+        from fuente.datos import agregar_valor_por_pixel
+
+        f = cfg.ficha("firms_modis_frp")
+        gdf = self._gdf_frp()
+        # Los dos primeros puntos caen en el mismo pixel MODIS (0.009 deg)
+        ag_max = agregar_valor_por_pixel(gdf, f, "maximo")
+        self.assertEqual(len(ag_max), 2)
+        self.assertAlmostEqual(max(ag_max["frp"]), 300.0)
+        ag_mean = agregar_valor_por_pixel(gdf, f, "promedio")
+        self.assertEqual(len(ag_mean), 2)
+        self.assertAlmostEqual(sorted(ag_mean["frp"])[1], 200.0)
+
+    def test_mapa_frp_sintetico(self):
+        import matplotlib
+        matplotlib.use("Agg")
+        import geopandas as gpd
+        import matplotlib.pyplot as plt
+        from fuente.mapa import generar_mapa
+
+        f = cfg.ficha("firms_modis_frp")
+        meses = cfg.parsear_meses(["2018-05"])
+        fig = generar_mapa(
+            gdf=self._gdf_frp(),
+            world=gpd.GeoDataFrame(),
+            meses=meses,
+            satelital=False,
+            esequibo=False,
+            rayas=False,
+            res_texto=f["res_texto"],
+            total_píxeles=3,
+            sensor_nombre=f["nombre"],
+            ficha=f,
+        )
+        self.assertIsNotNone(fig)
+        plt.close(fig)
+
+    def test_renderer_continuo_devuelve_coleccion(self):
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        from fuente.mapa import _plot_valor_continuo
+
+        f = cfg.ficha("firms_modis_frp")
+        fig, ax = plt.subplots()
+        sc = _plot_valor_continuo(ax, self._gdf_frp(), f)
+        self.assertIsNotNone(sc)
+        plt.close(fig)
 
 
 if __name__ == "__main__":

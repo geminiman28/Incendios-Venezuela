@@ -37,7 +37,7 @@ def reportar_disponibilidad():
     """Imprime tabla de años disponibles por producto del registro."""
     print("\nBIBLIOTECA     Venezuela        Guyana")
     print("─" * 50)
-    for producto, f in cfg.PRODUCTOS.items():
+    for producto, f in cfg.fuentes_csv_unicas():
         annos_v = fmt_annos(
             _annos_en_directorio(f["carpeta_ven"], f["patron_glob"])
         )
@@ -157,7 +157,34 @@ def a_geo(df: pd.DataFrame) -> gpd.GeoDataFrame:
     )
 
 
-def procesar_datos(producto: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: bool):
+def agregar_valor_por_pixel(gdf, ficha, metodo="maximo"):
+    """Agrupa detecciones por pixel de la rejilla nativa del sensor.
+
+    Redondea lon/lat a la rejilla (res_deg) y agrega la columna de
+    valor por maximo (default) o promedio. Conserva la primera fecha
+    del pixel para que los filtros temporales sigan funcionando.
+    """
+    col = ficha.get("columna_valor")
+    res = ficha.get("res_deg")
+    if gdf.empty or not col or col not in gdf.columns or not res:
+        logger.warning("Agregacion omitida: sin columna de valor o res_deg.")
+        return gdf
+    df = gdf.copy()
+    df["_px_lon"] = (df.geometry.x / res).round() * res
+    df["_px_lat"] = (df.geometry.y / res).round() * res
+    agg = "max" if metodo == "maximo" else "mean"
+    agrupado = (
+        df.groupby(["_px_lon", "_px_lat"], as_index=False)
+        .agg({col: agg, "acq_datetime": "min"})
+    )
+    return gpd.GeoDataFrame(
+        agrupado,
+        geometry=gpd.points_from_xy(agrupado["_px_lon"], agrupado["_px_lat"]),
+        crs="EPSG:4326",
+    )
+
+
+def procesar_datos(producto: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: bool, agregacion: str | None = None):
     """Carga, filtra y procesa datos. Retorna (gdf, world, gdf_e, ven, guy, stats, gdf_ese)."""
     ven, guy = leer_csv(producto, meses)
 
@@ -221,6 +248,17 @@ def procesar_datos(producto: str, meses: pd.DatetimeIndex, esequibo: bool, rayas
             if n_dentro > 0:
                 print(f"  [INFO] -{n_dentro} puntos Venezuela en Esequibo excluidos")
         gdf = gdf_ven
+
+    # Agregacion por pixel para productos de valor continuo (FRP)
+    ficha_actual = cfg.ficha(producto)
+    if ficha_actual.get("coloracion") == "continua_valor":
+        metodo = agregacion or "maximo"
+        n_antes = len(gdf)
+        gdf = agregar_valor_por_pixel(gdf, ficha_actual, metodo)
+        logger.info(
+            "Agregacion por pixel (%s): %d detecciones -> %d pixeles",
+            metodo, n_antes, len(gdf),
+        )
 
     # Calcular estadísticas para el informe
     stats = {
