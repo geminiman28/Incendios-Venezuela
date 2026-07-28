@@ -39,7 +39,13 @@ else:
     ray = "_rayas" if cfg.MOSTRAR_RAYAS else ""
     meses_str = "-".join(m.replace("-", "") for m in cfg.MESES_DEFAULT)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    sensor_cod = cfg.SENSOR_DEFAULT.replace(" ", "_").replace("(", "").replace(")", "")
+    sensor_cod = (
+        cfg.SENSOR_DEFAULT.replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("+", "")
+        .replace("__", "_")
+    )
     nombre = f"{modo}{eseq}{ray}_{sensor_cod}_{cfg.MESES_DEFAULT[0][:4]}_meses{meses_str}_{timestamp}.png"
     ruta_auto = str(cfg.MAPAS_GENERADOS / nombre)
     sys.argv.extend(["--guardar", ruta_auto])

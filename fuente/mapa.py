@@ -18,7 +18,7 @@ from shapely.ops import unary_union
 from shapely.geometry import MultiPolygon
 
 from fuente import configuracion as cfg
-from fuente.utils import get_logger
+from fuente.utils import get_logger, verificar_espacio
 
 logger = get_logger(__name__)
 # ------------------------------------------------------------------
@@ -317,7 +317,7 @@ def _titulo_leyenda(meses, sensor_nombre, res_texto):
     n = len(meses) - 1
     colores = cfg.PALETA[:n]
     if n > len(cfg.PALETA):
-        raise ValueError(f"Maximo {len(cfg.PALETA)} meses. Recibidos: {n}")
+        raise ValueError(f"Maximo 3 meses permitidos (parsear_meses). Recibidos: {n}")
 
     leyenda = [
         mpatches.Patch(
@@ -493,6 +493,11 @@ def _guardar(fig, guardar_como, dpi):
     """Guarda la figura respetando el formato de salida."""
     if not guardar_como:
         return
+    if not verificar_espacio(Path(guardar_como)):
+        logger.warning(
+            "Espacio en disco bajo (<500 MB). Se intentara guardar igual: %s",
+            guardar_como,
+        )
     ext = Path(guardar_como).suffix.lower()
     kwargs = {"dpi": dpi, "bbox_inches": "tight"}
     if ext in (".png", ".jpg", ".jpeg"):

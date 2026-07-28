@@ -56,9 +56,13 @@ def timed(func):
 
 
 def verificar_espacio(ruta: Path, mb_minimos: int = 500) -> bool:
-    """Verifica que haya al menos mb_minimos MB libres en la partición."""
+    """Verifica que haya al menos mb_minimos MB libres en la partición.
+
+    Acepta carpeta o archivo (existente o no): usa la carpeta contenedora.
+    """
     try:
-        _, _, libre_b = shutil.disk_usage(ruta.parent if ruta.is_file() else ruta)
+        objetivo = ruta if ruta.is_dir() else ruta.parent
+        _, _, libre_b = shutil.disk_usage(objetivo)
         return (libre_b / (1024 * 1024)) >= mb_minimos
     except Exception:
         return True  # Si no podemos verificar, asumimos que sí hay espacio
