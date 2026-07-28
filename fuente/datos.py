@@ -34,59 +34,25 @@ def _annos_en_directorio(directorio, patron):
 
 
 def reportar_disponibilidad():
-    """Imprime tabla de años disponibles por sensor."""
-    roots = [
-        ("VIIRS (SNPP)", "viirs-snpp", "VIIRS"),
-        ("VIIRS (JPSS1)", "viirs-jpss1", "VIIRS"),
-        ("MODIS (Aqua + Terra)", "modis", "MODIS"),
-    ]
+    """Imprime tabla de años disponibles por producto del registro."""
     print("\nBIBLIOTECA     Venezuela        Guyana")
     print("─" * 50)
-    for sensor, pref, folder in roots:
-        if folder == "MODIS":
-            v, g = (
-                cfg.DATA / "MODIS" / "Datos Venezuela MODIS",
-                cfg.DATA / "MODIS" / "Datos Guyana MODIS",
-            )
-            pat = "modis_*.csv"
-        else:
-            v = (
-                cfg.DATA
-                / "VIIRS"
-                / "Datos Venezuela viirs"
-                / f"Datos Venezuela {pref}"
-            )
-            g = (
-                cfg.DATA
-                / "VIIRS"
-                / "Datos Guyana viirs"
-                / f"Datos Guyana {pref}"
-            )
-            pat = f"{pref}_*.csv"
-        annos_v = fmt_annos(_annos_en_directorio(v, pat))
-        annos_g = fmt_annos(_annos_en_directorio(g, pat))
-        print(f"{sensor:<15} {annos_v:<16} {annos_g:<16}")
-
-
-def archivos_csv_venezuela(sensor):
-    """Devuelve lista ordenada de CSVs de Venezuela para un sensor."""
-    if sensor == "MODIS (Aqua + Terra)":
-        directorio = cfg.DATA / "MODIS" / "Datos Venezuela MODIS"
-        patron = "modis_*.csv"
-    elif sensor in ("VIIRS (SNPP)", "VIIRS (JPSS1)"):
-        pref = "viirs-snpp" if sensor == "VIIRS (SNPP)" else "viirs-jpss1"
-        directorio = (
-            cfg.DATA
-            / "VIIRS"
-            / "Datos Venezuela viirs"
-            / f"Datos Venezuela {pref}"
+    for producto, f in cfg.PRODUCTOS.items():
+        annos_v = fmt_annos(
+            _annos_en_directorio(f["carpeta_ven"], f["patron_glob"])
         )
-        patron = f"{pref}_*.csv"
-    else:
+        annos_g = fmt_annos(
+            _annos_en_directorio(f["carpeta_guy"], f["patron_glob"])
+        )
+        print(f"{f['nombre']:<15} {annos_v:<16} {annos_g:<16}")
+
+
+def archivos_csv_venezuela(producto):
+    """Devuelve lista ordenada de CSVs de Venezuela segun la ficha."""
+    f = cfg.ficha(producto)
+    if not f["carpeta_ven"].exists():
         return []
-    if not directorio.exists():
-        return []
-    return sorted(directorio.glob(patron))
+    return sorted(f["carpeta_ven"].glob(f["patron_glob"]))
 
 
 def cobertura_mensual(csv_path):
@@ -161,15 +127,13 @@ def _parse_datetime(df):
     return df
 
 
-def leer_csv(sensor: str, meses: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Devuelve (df_VEN, df_GUY) con datetime parseado."""
+def leer_csv(producto: str, meses: pd.DatetimeIndex) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Devuelve (df_VEN, df_GUY) con datetime parseado, segun la ficha."""
+    cfg.ficha(producto)  # valida que el producto exista en el registro
     rutas = cfg._rutas_csv(meses)
-    if sensor not in rutas:
-        logger.error(f"Sensor '{sensor}' no reconocido.")
-        return pd.DataFrame(), pd.DataFrame()
 
-    ven = _parse_datetime(_cargar_csvs(rutas[sensor]["ven"]))
-    guy = _parse_datetime(_cargar_csvs(rutas[sensor]["guy"]))
+    ven = _parse_datetime(_cargar_csvs(rutas[producto]["ven"]))
+    guy = _parse_datetime(_cargar_csvs(rutas[producto]["guy"]))
     return ven, guy
 
 
@@ -193,9 +157,9 @@ def a_geo(df: pd.DataFrame) -> gpd.GeoDataFrame:
     )
 
 
-def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: bool):
+def procesar_datos(producto: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: bool):
     """Carga, filtra y procesa datos. Retorna (gdf, world, gdf_e, ven, guy, stats, gdf_ese)."""
-    ven, guy = leer_csv(sensor, meses)
+    ven, guy = leer_csv(producto, meses)
 
     ven = filtrar_por_meses(ven, meses)   # CORREGIDO: filtrar Venezuela
     guy = filtrar_por_meses(guy, meses)

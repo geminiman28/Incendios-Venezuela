@@ -38,6 +38,7 @@ class TestConfiguracion(unittest.TestCase):
         self.assertEqual(args.esequibo, cfg.MOSTRAR_ESEQUIBO)
         self.assertEqual(args.rayas, cfg.MOSTRAR_RAYAS)
         self.assertEqual(args.cobertura, cfg.COBERTURA_DEFAULT)
+        self.assertIsNone(args.producto)
 
 
     def test_parsear_meses(self):
@@ -97,6 +98,42 @@ class TestConfiguracion(unittest.TestCase):
             utils.verificar_espacio(cfg.RAIZ / "output" / "mapa_nuevo_xyz.png")
         )
 
+    def test_registro_productos(self):
+        self.assertEqual(
+            set(cfg.PRODUCTOS),
+            {
+                "firms_viirs_snpp_presencia",
+                "firms_viirs_jpss1_presencia",
+                "firms_modis_presencia",
+            },
+        )
+        for sensor in cfg.SENSORES_VALIDOS:
+            self.assertIn(sensor, cfg.SENSOR_A_PRODUCTO)
+
+    def test_fichas_campos_obligatorios(self):
+        campos = {
+            "nombre", "familia", "variable", "unidad", "fuente",
+            "carpeta_ven", "carpeta_guy", "plantilla", "patron_glob",
+            "formato", "columnas_requeridas", "columna_valor",
+            "renderer", "coloracion", "leyenda", "res_texto", "cita",
+        }
+        for producto, f in cfg.PRODUCTOS.items():
+            self.assertTrue(campos.issubset(f.keys()), f"Falta campo en {producto}")
+            self.assertEqual(cfg.SENSOR_A_PRODUCTO[f["nombre"]], producto)
+
+    def test_resolver_producto(self):
+        parser = cfg.crear_parser()
+        args = parser.parse_args([])
+        self.assertEqual(cfg.resolver_producto(args), cfg.PRODUCTO_DEFAULT)
+        args = parser.parse_args(["--producto", "firms_viirs_jpss1_presencia"])
+        self.assertEqual(
+            cfg.resolver_producto(args), "firms_viirs_jpss1_presencia"
+        )
+
+    def test_ficha_desconocida(self):
+        with self.assertRaises(KeyError):
+            cfg.ficha("producto_que_no_existe")
+
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
 
@@ -107,14 +144,16 @@ class TestDatos(unittest.TestCase):
     def test_rutas_csv(self):
         meses = pd.date_range("2018-05-01", "2018-08-01", freq="MS")
         rutas = cfg._rutas_csv(meses)
-        self.assertIn("VIIRS (JPSS1)", rutas)
-        self.assertIn("MODIS (Aqua + Terra)", rutas)
-        self.assertIsInstance(rutas["VIIRS (JPSS1)"]["ven"][0], Path)
+        self.assertIn("firms_viirs_jpss1_presencia", rutas)
+        self.assertIn("firms_modis_presencia", rutas)
+        self.assertIsInstance(
+            rutas["firms_viirs_jpss1_presencia"]["ven"][0], Path
+        )
 
     def test_cargar_csv_viirs_jpss1_2018(self):
         """Carga real de datos VIIRS JPSS1 2018."""
         meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
-        ven, guy = leer_csv("VIIRS (JPSS1)", meses)
+        ven, guy = leer_csv("firms_viirs_jpss1_presencia", meses)
         # Al menos uno debe tener datos
         self.assertFalse(
             ven.empty and guy.empty,
@@ -124,14 +163,14 @@ class TestDatos(unittest.TestCase):
 
     def test_filtrar_por_meses(self):
         meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
-        ven, _ = leer_csv("VIIRS (JPSS1)", meses)
+        ven, _ = leer_csv("firms_viirs_jpss1_presencia", meses)
         if not ven.empty:
             filtrado = filtrar_por_meses(ven, meses)
             self.assertIsInstance(filtrado, pd.DataFrame)
 
     def test_a_geo(self):
         meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
-        ven, _ = leer_csv("VIIRS (JPSS1)", meses)
+        ven, _ = leer_csv("firms_viirs_jpss1_presencia", meses)
         if not ven.empty:
             gdf = a_geo(ven)
             self.assertTrue(hasattr(gdf, "geometry"))
@@ -139,7 +178,7 @@ class TestDatos(unittest.TestCase):
 
     def test_cobertura_mensual(self):
         from fuente.datos import archivos_csv_venezuela, cobertura_mensual
-        archivos = archivos_csv_venezuela("VIIRS (JPSS1)")
+        archivos = archivos_csv_venezuela("firms_viirs_jpss1_presencia")
         if not archivos:
             self.skipTest("Sin CSVs VIIRS JPSS1 de Venezuela")
         resultado = cobertura_mensual(archivos[0])
@@ -162,7 +201,7 @@ class TestDatos(unittest.TestCase):
     def test_procesar_datos_retorna_gdf_ese(self):
         from fuente.datos import procesar_datos
         meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
-        resultado = procesar_datos("VIIRS (JPSS1)", meses, esequibo=True, rayas=False)
+        resultado = procesar_datos("firms_viirs_jpss1_presencia", meses, esequibo=True, rayas=False)
         self.assertEqual(len(resultado), 7)
 
 

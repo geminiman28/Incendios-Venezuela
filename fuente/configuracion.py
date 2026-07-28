@@ -139,40 +139,117 @@ ALPHAS = [1.0, 0.5, 0.2, 0.1]
 MARKERSIZE = 1
 FIG_HEIGHT = 10
 
-RESOLUCION = {
-    "VIIRS (SNPP)": "0.375 Km x 0.375 Km",
-    "VIIRS (JPSS1)": "0.375 Km x 0.375 Km",
-    "MODIS (Aqua + Terra)": "1.0 Km x 1.0 Km",
+# ============================================================
+# REGISTRO DE PRODUCTOS (fichas declarativas, P7.1)
+# ------------------------------------------------------------
+# Cada ficha declara identidad, ubicacion, carga, tiempo,
+# representacion y procedencia. Para agregar un producto nuevo
+# basta una ficha: el resto del programa la consume sin cambios.
+# ============================================================
+_FIRMS_BASE = {
+    "familia": "firms",
+    "variable": "presencia",
+    "unidad": "detecciones",
+    "fuente": "NASA FIRMS (NRT)",
+    "formato": "csv_puntos",
+    "columnas_requeridas": ("latitude", "longitude", "acq_date"),
+    "columna_valor": None,
+    "escala": 1.0,
+    "nodata": None,
+    "crs_nativo": "EPSG:4326",
+    "resolucion_nativa": "instantanea",
+    "agregaciones": (),
+    "ventana_max": 3,
+    "renderer": "puntos",
+    "coloracion": "categorica_mes",
+    "paleta": "PALETA",
+    "leyenda": "meses",
+    "producto": "FIRMS NRT",
+    "coleccion": "NRT",
+    "cita": "NASA FIRMS: https://firms.modaps.eosdis.nasa.gov/",
+    "doi": None,
 }
+
+PRODUCTOS = {
+    "firms_viirs_snpp_presencia": {
+        **_FIRMS_BASE,
+        "nombre": "VIIRS (SNPP)",
+        "carpeta_ven": (
+            DATA / "VIIRS" / "Datos Venezuela viirs" / "Datos Venezuela viirs-snpp"
+        ),
+        "carpeta_guy": (
+            DATA / "VIIRS" / "Datos Guyana viirs" / "Datos Guyana viirs-snpp"
+        ),
+        "plantilla": "viirs-snpp_{a}_{region}.csv",
+        "patron_glob": "viirs-snpp_*.csv",
+        "res_texto": "0.375 Km x 0.375 Km",
+    },
+    "firms_viirs_jpss1_presencia": {
+        **_FIRMS_BASE,
+        "nombre": "VIIRS (JPSS1)",
+        "carpeta_ven": (
+            DATA / "VIIRS" / "Datos Venezuela viirs" / "Datos Venezuela viirs-jpss1"
+        ),
+        "carpeta_guy": (
+            DATA / "VIIRS" / "Datos Guyana viirs" / "Datos Guyana viirs-jpss1"
+        ),
+        "plantilla": "viirs-jpss1_{a}_{region}.csv",
+        "patron_glob": "viirs-jpss1_*.csv",
+        "res_texto": "0.375 Km x 0.375 Km",
+    },
+    "firms_modis_presencia": {
+        **_FIRMS_BASE,
+        "nombre": "MODIS (Aqua + Terra)",
+        "carpeta_ven": DATA / "MODIS" / "Datos Venezuela MODIS",
+        "carpeta_guy": DATA / "MODIS" / "Datos Guyana MODIS",
+        "plantilla": "modis_{a}_{region}.csv",
+        "patron_glob": "modis_*.csv",
+        "res_texto": "1.0 Km x 1.0 Km",
+    },
+}
+
+# Alias retrocompatible: nombres historicos de --sensor -> id de producto
+SENSOR_A_PRODUCTO = {
+    "VIIRS (SNPP)": "firms_viirs_snpp_presencia",
+    "VIIRS (JPSS1)": "firms_viirs_jpss1_presencia",
+    "MODIS (Aqua + Terra)": "firms_modis_presencia",
+}
+
+PRODUCTO_DEFAULT = SENSOR_A_PRODUCTO[SENSOR_DEFAULT]
+
+
+def ficha(producto):
+    """Devuelve la ficha del producto o falla con mensaje claro."""
+    if producto not in PRODUCTOS:
+        raise KeyError(
+            f"Producto '{producto}' no registrado. "
+            f"Disponibles: {', '.join(PRODUCTOS)}"
+        )
+    return PRODUCTOS[producto]
+
+
+def resolver_producto(args):
+    """Producto efectivo: --producto tiene prioridad; --sensor es alias."""
+    if getattr(args, "producto", None):
+        return args.producto
+    return SENSOR_A_PRODUCTO[args.sensor]
 
 
 def _rutas_csv(meses):
-    """Genera rutas CSV segun los meses solicitados."""
+    """Genera rutas CSV por producto segun los meses solicitados."""
     annos = sorted({m.year for m in meses})
     res = {}
-
-    for sensor, pref in [
-        ("VIIRS (SNPP)", "viirs-snpp"),
-        ("VIIRS (JPSS1)", "viirs-jpss1"),
-    ]:
-        v = (
-            DATA
-            / "VIIRS"
-            / "Datos Venezuela viirs"
-            / f"Datos Venezuela {pref}"
-        )
-        g = DATA / "VIIRS" / "Datos Guyana viirs" / f"Datos Guyana {pref}"
-        res[sensor] = {
-            "ven": [v / f"{pref}_{a}_Venezuela.csv" for a in annos],
-            "guy": [g / f"{pref}_{a}_Guyana.csv" for a in annos],
+    for producto, f in PRODUCTOS.items():
+        res[producto] = {
+            "ven": [
+                f["carpeta_ven"] / f["plantilla"].format(a=a, region="Venezuela")
+                for a in annos
+            ],
+            "guy": [
+                f["carpeta_guy"] / f["plantilla"].format(a=a, region="Guyana")
+                for a in annos
+            ],
         }
-
-    v = DATA / "MODIS" / "Datos Venezuela MODIS"
-    g = DATA / "MODIS" / "Datos Guyana MODIS"
-    res["MODIS (Aqua + Terra)"] = {
-        "ven": [v / f"modis_{a}_Venezuela.csv" for a in annos],
-        "guy": [g / f"modis_{a}_Guyana.csv" for a in annos],
-    }
     return res
 
 
@@ -203,6 +280,12 @@ def crear_parser():
         choices=SENSORES_VALIDOS,
         default=SENSOR_DEFAULT,
         help=f"Sensor (default: {SENSOR_DEFAULT})",
+    )
+    parser.add_argument(
+        "--producto",
+        choices=list(PRODUCTOS),
+        default=None,
+        help="Producto del registro (prioridad sobre --sensor).",
     )
     parser.add_argument(
         "--meses",
