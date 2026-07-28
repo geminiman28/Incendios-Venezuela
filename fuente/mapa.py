@@ -62,6 +62,11 @@ def _escala(ax, crs, extent):
         m_por_deg = 111_320 * np.cos(np.radians((y_min + y_max) / 2))
         ancho_m = ancho * m_por_deg
     else:
+        # EPSG:3857 (Web Mercator): las unidades ya son metros de pantalla,
+        # pero la proyeccion estira las distancias reales por 1/cos(lat).
+        # En Venezuela (0-16 N) el estiramiento es ~1-2%: la barra marca
+        # ~500 km de pantalla que equivalen a ~495 km reales a 8 N.
+        # Se acepta la aproximacion por simplicidad cartografica.
         m_por_deg = 1.0
         ancho_m = ancho
 
