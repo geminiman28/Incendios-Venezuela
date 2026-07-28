@@ -68,6 +68,41 @@ def reportar_disponibilidad():
         print(f"{sensor:<15} {annos_v:<16} {annos_g:<16}")
 
 
+def archivos_csv_venezuela(sensor):
+    """Devuelve lista ordenada de CSVs de Venezuela para un sensor."""
+    if sensor == "MODIS (Aqua + Terra)":
+        directorio = cfg.DATA / "MODIS" / "Datos Venezuela MODIS"
+        patron = "modis_*.csv"
+    elif sensor in ("VIIRS (SNPP)", "VIIRS (JPSS1)"):
+        pref = "viirs-snpp" if sensor == "VIIRS (SNPP)" else "viirs-jpss1"
+        directorio = (
+            cfg.DATA
+            / "VIIRS"
+            / "Datos Venezuela viirs"
+            / f"Datos Venezuela {pref}"
+        )
+        patron = f"{pref}_*.csv"
+    else:
+        return []
+    if not directorio.exists():
+        return []
+    return sorted(directorio.glob(patron))
+
+
+def cobertura_mensual(csv_path):
+    """Meses presentes en un CSV: (anno, {meses}) o None si falla."""
+    try:
+        df = pd.read_csv(csv_path, usecols=["acq_date"])
+        fechas = pd.to_datetime(df["acq_date"], errors="coerce").dropna()
+    except Exception as e:
+        logger.warning("No se pudo leer %s para cobertura: %s", csv_path, e)
+        return None
+    if fechas.empty:
+        logger.warning("%s sin fechas validas.", csv_path.name)
+        return None
+    return fechas.iloc[0].year, set(fechas.dt.month.unique())
+
+
 def _cargar_csvs(rutas):
     """Concatena CSVs existentes; devuelve DataFrame vacío si ninguno."""
     fragmentos = []

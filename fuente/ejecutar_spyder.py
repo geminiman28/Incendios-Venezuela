@@ -23,6 +23,9 @@ else:
 if cfg.MOSTRAR_RAYAS:
     sys.argv.append("--rayas")
 
+if cfg.COBERTURA_DEFAULT:
+    sys.argv.append("--cobertura")
+
 sys.argv.extend(["--sensor", cfg.SENSOR_DEFAULT])
 sys.argv.extend(["--meses"] + cfg.MESES_DEFAULT)
 sys.argv.extend(["--dpi", str(cfg.DPI_DEFAULT)])

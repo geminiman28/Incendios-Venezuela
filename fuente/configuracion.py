@@ -19,6 +19,7 @@ SENSOR_DEFAULT = "MODIS (Aqua + Terra)"
 MESES_DEFAULT = ["2024-01","2024-02"]
 DPI_DEFAULT = 150
 GUARDAR_DEFAULT = None        # None = no guardar, o string con ruta
+COBERTURA_DEFAULT = False     # True = escaneo mes a mes de CSVs en informe (lento)
 # ============================================================
 
 from fuente.utils import get_logger
@@ -279,6 +280,20 @@ def crear_parser():
         action="store_true",
         help="Mostrar annos disponibles por sensor y salir.",
     )
+    if BooleanOptionalAction:
+        parser.add_argument(
+            "--cobertura",
+            action=BooleanOptionalAction,
+            default=COBERTURA_DEFAULT,
+            help="Informe: escaneo mes a mes de todos los CSV (lento)",
+        )
+    else:
+        parser.add_argument(
+            "--cobertura",
+            action="store_true",
+            default=COBERTURA_DEFAULT,
+            help="Informe: escaneo mes a mes de todos los CSV (lento)",
+        )
     parser.add_argument(
         "--dpi",
         type=int,
