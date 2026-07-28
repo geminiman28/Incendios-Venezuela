@@ -64,7 +64,7 @@ def main():
     meses = cfg.parsear_meses(args.meses)
 
     logger.info("Procesando datos...")
-    gdf, world, gdf_e, ven, guy, stats = procesar_datos(
+    gdf, world, gdf_e, ven, guy, stats, gdf_ese = procesar_datos(
         sensor=args.sensor,
         meses=meses,
         esequibo=args.esequibo,
@@ -99,6 +99,7 @@ def main():
         res_texto=res_texto,
         total_píxeles=total_píxeles,
         sensor_nombre=args.sensor,
+        gdf_ese=gdf_ese,
         guardar_como=guardar_como,
         dpi=args.dpi,
     )

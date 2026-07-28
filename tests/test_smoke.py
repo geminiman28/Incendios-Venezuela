@@ -133,6 +133,23 @@ class TestDatos(unittest.TestCase):
         self.assertGreaterEqual(anno, 2000)
         self.assertTrue(all(1 <= m <= 12 for m in meses))
 
+    def test_parse_datetime_sin_acq_time(self):
+        from fuente.datos import _parse_datetime
+        df = pd.DataFrame({
+            "latitude": [8.5],
+            "longitude": [-62.1],
+            "acq_date": ["2018-05-03"],
+        })
+        resultado = _parse_datetime(df)
+        self.assertIn("acq_datetime", resultado.columns)
+        self.assertFalse(resultado["acq_datetime"].isna().any())
+
+    def test_procesar_datos_retorna_gdf_ese(self):
+        from fuente.datos import procesar_datos
+        meses = pd.date_range("2018-05-01", "2018-07-01", freq="MS")
+        resultado = procesar_datos("VIIRS (JPSS1)", meses, esequibo=True, rayas=False)
+        self.assertEqual(len(resultado), 7)
+
 
 if __name__ == "__main__":
     unittest.main()

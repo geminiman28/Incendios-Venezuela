@@ -184,17 +184,17 @@ def _plot_mundo(ax, world, satelital):
         )
 
 
-def _plot_esequibo(ax, crs, rayas=False, satelital=False):
-    """Dibuja Esequibo con matplotlib.patches.Polygon (sin descartes)."""
-    if not cfg.SHP_ESQ.exists():
-        logger.warning(f"Shapefile Esequibo no encontrado: {cfg.SHP_ESQ}")
+def _plot_esequibo(ax, gdf_ese, crs, rayas=False, satelital=False):
+    """Dibuja Esequibo con matplotlib.patches.Polygon (sin descartes).
+
+    Recibe el GeoDataFrame ya cargado por procesar_datos (lectura unica).
+    """
+    if gdf_ese is None or gdf_ese.empty:
+        logger.warning("Sin geometria del Esequibo para dibujar.")
         return
 
     try:
-        ese = gpd.read_file(cfg.SHP_ESQ)
-        if ese.empty:
-            return
-
+        ese = gdf_ese
         if (
             crs == "3857"
             and ese.crs is not None
@@ -222,24 +222,6 @@ def _plot_esequibo(ax, crs, rayas=False, satelital=False):
 
     except Exception as e:
         logger.warning(f"Error dibujando Esequibo: {e}")
-        # Fallback simple sin recursión
-        try:
-            if cfg.SHP_ESQ.exists():
-                ese = gpd.read_file(cfg.SHP_ESQ)
-                if not ese.empty:
-                    if crs == "3857" and ese.crs is not None and "3857" not in str(ese.crs):
-                        ese = ese.to_crs(epsg=3857)
-                    g = ESTILO["grosor"]
-                    fc = "none" if satelital else "forestgreen"
-                    # Fondo base
-                    ese.plot(ax=ax, facecolor=fc, edgecolor="none", linewidth=0, alpha=1.0)
-                    if rayas:
-                        # Rayas grises 35%
-                        ese.plot(ax=ax, facecolor="none", edgecolor="black", linewidth=1.5, hatch="/////", alpha=0.5)
-                    # Borde negro
-                    ese.plot(ax=ax, facecolor="none", edgecolor="black", linewidth=g["esequibo"], alpha=1.0)
-        except Exception as e2:
-            logger.warning(f"Fallback Esequibo también falló: {e2}")
 
 
 
@@ -533,6 +515,7 @@ def generar_mapa(
     res_texto: str,
     total_píxeles: int,
     sensor_nombre: str,
+    gdf_ese: gpd.GeoDataFrame | None = None,
     guardar_como: str | None = None,
     dpi: int = 300,
 ) -> plt.Figure:
@@ -544,7 +527,7 @@ def generar_mapa(
 
     _plot_mundo(ax, world, satelital)
     if cfg.modo_esequibo(esequibo, rayas) == "disputa":
-        _plot_esequibo(ax, crs_code, rayas=rayas, satelital=satelital)
+        _plot_esequibo(ax, gdf_ese, crs_code, rayas=rayas, satelital=satelital)
 
     _ticks_grados(ax, cfg.XTICKS_DEG, cfg.YTICKS_DEG, crs_code, cfg.EXTENT_DEG, tr)
     _escala(ax, crs_code, extent_mapa)

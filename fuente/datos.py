@@ -137,19 +137,23 @@ def _cargar_csvs(rutas):
         logger.warning("CSVs con columnas muy diferentes.")
         return pd.DataFrame()
 
-    return pd.concat([df[list(cols)] for df in fragmentos], ignore_index=True)
+    return pd.concat([df[sorted(cols)] for df in fragmentos], ignore_index=True)
 
 
 def _parse_datetime(df):
-    """Añade columna acq_datetime desde acq_date + acq_time."""
+    """Añade columna acq_datetime desde acq_date (+ acq_time si existe)."""
     if df.empty or "acq_date" not in df.columns:
         return df
 
-    df["acq_datetime"] = pd.to_datetime(
-        df["acq_date"] + " " + df["acq_time"].astype(str).str.zfill(4),
-        format="%Y-%m-%d %H%M",
-        errors="coerce",
-    )
+    if "acq_time" in df.columns:
+        df["acq_datetime"] = pd.to_datetime(
+            df["acq_date"] + " " + df["acq_time"].astype(str).str.zfill(4),
+            format="%Y-%m-%d %H%M",
+            errors="coerce",
+        )
+    else:
+        logger.warning("CSV sin columna acq_time; se usa solo acq_date.")
+        df["acq_datetime"] = pd.to_datetime(df["acq_date"], errors="coerce")
     n = df.acq_datetime.isna().sum()
     if n:
         logger.warning(f"{n} filas con fecha inválida omitidas.")
@@ -190,7 +194,7 @@ def a_geo(df: pd.DataFrame) -> gpd.GeoDataFrame:
 
 
 def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: bool):
-    """Carga, filtra y procesa datos. Retorna (gdf, world, gdf_e, ven, guy)."""
+    """Carga, filtra y procesa datos. Retorna (gdf, world, gdf_e, ven, guy, stats, gdf_ese)."""
     ven, guy = leer_csv(sensor, meses)
 
     ven = filtrar_por_meses(ven, meses)   # CORREGIDO: filtrar Venezuela
@@ -213,11 +217,19 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
 
     gdf_e = None
 
+    # --- Shapefile del Esequibo: una sola lectura por ejecucion ---
+    gdf_ese = None
+    if cfg.SHP_ESQ.exists():
+        try:
+            gdf_ese = _asegurar_crs(gpd.read_file(cfg.SHP_ESQ), "esequibo")
+        except Exception as e:
+            logger.error(f"Error leyendo shapefile Esequibo: {e}")
+
     # --- Caso 1: Venezuela incluye Esequibo como unidad ---
     # Se suman los puntos de Guyana que caen en el Esequibo
     if modo == "unidad":
-        if cfg.SHP_ESQ.exists() and not gdf_guy.empty:
-            ese = _asegurar_crs(gpd.read_file(cfg.SHP_ESQ), "esequibo").to_crs(gdf_guy.crs)
+        if gdf_ese is not None and not gdf_guy.empty:
+            ese = gdf_ese.to_crs(gdf_guy.crs)
             joined = gdf_guy.sjoin(ese, predicate="within", how="inner")
             if not joined.empty:
                 # Conservar solo columnas originales de gdf_guy
@@ -236,8 +248,8 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
     # --- Caso 2/3: Esequibo no es parte de Venezuela o es disputa ---
     # Se excluyen los puntos de Venezuela que caen en el Esequibo
     else:
-        if cfg.SHP_ESQ.exists() and not gdf_ven.empty:
-            ese = _asegurar_crs(gpd.read_file(cfg.SHP_ESQ), "esequibo").to_crs(gdf_ven.crs)
+        if gdf_ese is not None and not gdf_ven.empty:
+            ese = gdf_ese.to_crs(gdf_ven.crs)
             joined = gdf_ven.sjoin(ese, predicate="within", how="left")
             fuera = joined.index_right.isna()
             n_dentro = (~fuera).sum()
@@ -254,4 +266,4 @@ def procesar_datos(sensor: str, meses: pd.DatetimeIndex, esequibo: bool, rayas: 
         "venezuela_total": len(gdf),
     }
 
-    return gdf, world, gdf_e, ven, guy, stats
+    return gdf, world, gdf_e, ven, guy, stats, gdf_ese
