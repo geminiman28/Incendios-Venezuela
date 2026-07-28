@@ -414,6 +414,41 @@ def _plot_pixeles(ax, gdf, meses, colores):
             )
 
 
+def _plot_valor_continuo(ax, gdf, ficha):
+    """Dibuja puntos coloreados por valor continuo (p.ej. FRP en MW)."""
+    col = ficha.get("columna_valor")
+    if gdf.empty or not col or col not in gdf.columns:
+        logger.warning("Sin columna de valor para coloracion continua.")
+        return None
+    norm = plt.Normalize(ficha.get("vmin", 0), ficha.get("vmax", 300))
+    cmap = plt.get_cmap(ficha.get("paleta", "YlOrRd"))
+    sc = ax.scatter(
+        gdf.geometry.x,
+        gdf.geometry.y,
+        c=gdf[col],
+        cmap=cmap,
+        norm=norm,
+        s=cfg.MARKERSIZE,
+        marker="s",
+        linewidths=0,
+        zorder=5,
+    )
+    return sc
+
+
+def _colorbar_valor(fig, ax, sc, ficha):
+    """Colorbar horizontal en la esquina inferior izquierda."""
+    cax = ax.inset_axes([0.015, 0.055, 0.22, 0.028])
+    cb = fig.colorbar(sc, cax=cax, orientation="horizontal")
+    cb.set_label(
+        f"{ficha['variable'].upper()} ({ficha['unidad']})",
+        fontsize=9,
+        weight="bold",
+    )
+    cb.ax.tick_params(labelsize=8)
+    return cb
+
+
 def _anotaciones(ax, satelital, total_píxeles, res_texto):
     """EPSG, pie de píxeles y fuente NASA FIRMS."""
     crs_num = 3857 if satelital else 4326
@@ -526,6 +561,7 @@ def generar_mapa(
     total_píxeles: int,
     sensor_nombre: str,
     gdf_ese: gpd.GeoDataFrame | None = None,
+    ficha: dict | None = None,
     guardar_como: str | None = None,
     dpi: int = 300,
 ) -> plt.Figure:
@@ -543,15 +579,20 @@ def generar_mapa(
     _escala(ax, crs_code, extent_mapa)
 
     titulo, leyenda, colores = _titulo_leyenda(meses, sensor_nombre, res_texto)
-    _plot_pixeles(ax, gdf, meses, colores)
 
-    ax.legend(
-        handles=leyenda,
-        loc="lower left",
-        title="Pixeles por mes",
-        frameon=True,
-        fancybox=True,
-    )
+    if ficha is not None and ficha.get("coloracion") == "continua_valor":
+        sc = _plot_valor_continuo(ax, gdf, ficha)
+        if sc is not None:
+            _colorbar_valor(fig, ax, sc, ficha)
+    else:
+        _plot_pixeles(ax, gdf, meses, colores)
+        ax.legend(
+            handles=leyenda,
+            loc="lower left",
+            title="Pixeles por mes",
+            frameon=True,
+            fancybox=True,
+        )
     ax.set_title(titulo, weight="bold")
 
     _anotaciones(ax, satelital, total_píxeles, res_texto)

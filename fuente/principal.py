@@ -72,6 +72,7 @@ def main():
         meses=meses,
         esequibo=args.esequibo,
         rayas=args.rayas,
+        agregacion=args.agregacion,
     )
 
     if gdf is None or gdf.empty:
@@ -103,6 +104,7 @@ def main():
         total_píxeles=total_píxeles,
         sensor_nombre=ficha_actual["nombre"],
         gdf_ese=gdf_ese,
+        ficha=ficha_actual,
         guardar_como=guardar_como,
         dpi=args.dpi,
     )
@@ -135,7 +137,7 @@ def main():
     print("\n  [A] DATOS DISPONIBLES EN CARPETAS CSV")
     print("      " + "-" * 46)
 
-    for prod_id, ficha_i in cfg.PRODUCTOS.items():
+    for prod_id, ficha_i in cfg.fuentes_csv_unicas():
         v_files = archivos_csv_venezuela(prod_id)
         annos = sorted(
             {
