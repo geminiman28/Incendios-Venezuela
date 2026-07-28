@@ -1,7 +1,9 @@
-pandas>=2.0.0
-geopandas>=0.14.0
-matplotlib>=3.7.0
-contextily>=1.4.0
-pyproj>=3.6.0
-shapely>=2.0.0
-numpy>=1.24.0
+# Dependencias pineadas del entorno funcional verificado (serie P6, jul-2026).
+# Instalar con: pip install -r requirements.txt
+pandas==2.2.3
+geopandas==1.1.1
+matplotlib==3.10.0
+contextily==1.6.2
+pyproj==3.6.1
+shapely==2.1.1
+numpy==2.2.6
