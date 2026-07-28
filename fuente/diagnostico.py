@@ -42,7 +42,7 @@ def _check(label, ruta, es_archivo=False):
     return ok
 
 
-def diagnostico(sensor=None, meses=None):
+def diagnostico(producto=None, meses=None):
     """Ejecuta diagnóstico completo."""
     import pandas as pd
 
@@ -73,20 +73,21 @@ def diagnostico(sensor=None, meses=None):
         _check(nombre, ruta, True)
 
     print("\n5. CSVs")
-    sensor = sensor or cfg.SENSOR_DEFAULT
+    producto = producto or cfg.PRODUCTO_DEFAULT
     if meses is None:
         meses = pd.date_range(
             cfg.DEFAULT_MESES_INICIO, cfg.DEFAULT_MESES_FIN, freq="MS"
         )
     rutas = cfg._rutas_csv(meses)
-    if sensor in rutas:
-        print(f"   Sensor: {sensor} | {meses[0].date()} → {meses[-1].date()}")
+    if producto in rutas:
+        f = cfg.ficha(producto)
+        print(f"   Sensor: {f['nombre']} | {meses[0].date()} → {meses[-1].date()}")
         for zona, key in [("Venezuela", "ven"), ("Guyana", "guy")]:
             print(f"   {zona}:")
-            for r in rutas[sensor][key]:
+            for r in rutas[producto][key]:
                 _check(f"     {r.name}", r, True)
     else:
-        print(f"   ❌ Sensor '{sensor}' no reconocido.")
+        print(f"   ❌ Producto '{producto}' no registrado.")
 
     print("\n6. RESUMEN")
     todo_ok = deps_ok and all(_RESULTADOS)

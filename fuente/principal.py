@@ -46,9 +46,12 @@ def main():
     parser = cfg.crear_parser()
     args = parser.parse_args()
 
+    producto = cfg.resolver_producto(args)
+    ficha_actual = cfg.ficha(producto)
+
     if args.diagnostico:
         meses_diag = cfg.parsear_meses(args.meses)
-        diagnostico(sensor=args.sensor, meses=meses_diag)
+        diagnostico(producto=producto, meses=meses_diag)
         return
 
     if args.disponibilidad:
@@ -65,7 +68,7 @@ def main():
 
     logger.info("Procesando datos...")
     gdf, world, gdf_e, ven, guy, stats, gdf_ese = procesar_datos(
-        sensor=args.sensor,
+        producto=producto,
         meses=meses,
         esequibo=args.esequibo,
         rayas=args.rayas,
@@ -75,7 +78,7 @@ def main():
         logger.warning("[!] Sin píxeles tras filtrar -> mapa omitido.")
         return
 
-    res_texto = cfg.RESOLUCION.get(args.sensor, "N/A")
+    res_texto = ficha_actual["res_texto"]
     total_píxeles = len(gdf)
 
     guardar_como = args.guardar
@@ -98,7 +101,7 @@ def main():
         rayas=args.rayas,
         res_texto=res_texto,
         total_píxeles=total_píxeles,
-        sensor_nombre=args.sensor,
+        sensor_nombre=ficha_actual["nombre"],
         gdf_ese=gdf_ese,
         guardar_como=guardar_como,
         dpi=args.dpi,
@@ -132,8 +135,8 @@ def main():
     print("\n  [A] DATOS DISPONIBLES EN CARPETAS CSV")
     print("      " + "-" * 46)
 
-    for sensor_nombre in cfg.SENSORES_VALIDOS:
-        v_files = archivos_csv_venezuela(sensor_nombre)
+    for prod_id, ficha_i in cfg.PRODUCTOS.items():
+        v_files = archivos_csv_venezuela(prod_id)
         annos = sorted(
             {
                 int(f.stem.split("_")[1])
@@ -142,7 +145,7 @@ def main():
             }
         )
 
-        print(f"\n      📡 {sensor_nombre}")
+        print(f"\n      📡 {ficha_i['nombre']}")
         print(f"          Años: {fmt_annos(annos)} ({len(v_files)} archivos)")
 
         if not args.cobertura:
@@ -168,7 +171,7 @@ def main():
     # --- PARTE B: CONFIGURACIÓN DE ESTA EJECUCIÓN ---
     print("\n  [B] CONFIGURACIÓN DE ESTA EJECUCIÓN")
     print("      " + "-" * 46)
-    print(f"      Sensor:      {args.sensor}")
+    print(f"      Sensor:      {ficha_actual['nombre']}")
     print(f"      Año:         {meses[0].year}")
     print(f"      Periodo:     {periodo}")
     print(f"      Meses:       {', '.join(cfg.MESES_ES[m.month - 1].capitalize() for m in meses[:-1])}")
