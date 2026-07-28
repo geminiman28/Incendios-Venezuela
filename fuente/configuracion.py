@@ -99,8 +99,9 @@ LOGO_IVIC = _resolver_ruta(
     RAIZ, _ENV, "INCENDIOS_LOGO", "IVICvertical.png"
 )
 
-LOGO_POSICION = _ENV.get(
-    "INCENDIOS_LOGO_POSICION", "superior_derecha"
+LOGO_POSICION = (
+    os.getenv("INCENDIOS_LOGO_POSICION")
+    or _ENV.get("INCENDIOS_LOGO_POSICION", "superior_derecha")
 ).strip().lower()
 
 SENSORES_VALIDOS = [

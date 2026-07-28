@@ -69,6 +69,15 @@ class TestConfiguracion(unittest.TestCase):
             {"superior_derecha", "superior_izquierda"},
         )
 
+    def test_logo_posicion_desde_entorno(self):
+        import importlib
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"INCENDIOS_LOGO_POSICION": "superior_izquierda"}):
+            importlib.reload(cfg)
+            self.assertEqual(cfg.LOGO_POSICION, "superior_izquierda")
+        importlib.reload(cfg)
+
 
     def test_verificar_espacio_usa_libre(self):
         from unittest.mock import patch
@@ -81,6 +90,12 @@ class TestConfiguracion(unittest.TestCase):
         ):
             self.assertFalse(utils.verificar_espacio(cfg.RAIZ, 11))
             self.assertTrue(utils.verificar_espacio(cfg.RAIZ, 10))
+
+    def test_verificar_espacio_ruta_nueva(self):
+        from fuente import utils
+        self.assertTrue(
+            utils.verificar_espacio(cfg.RAIZ / "output" / "mapa_nuevo_xyz.png")
+        )
 
 class TestDatos(unittest.TestCase):
     """Tests de carga de datos."""
